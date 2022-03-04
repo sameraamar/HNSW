@@ -15,9 +15,9 @@ namespace HNSW
         {
         }
 
-        public void Init(string modelPath)
+        public void Init(string modelPath, int mParam, int efConstruction)
         {
-            BuildFileNames(modelPath, DatasetName, (EmbeddedVectorsList.Count, EmbeddedVectorsList[0].Length), out var graphFilename, out var vectorsFileName);
+            BuildFileNames(modelPath, $"{DatasetName}-m{mParam}-ef{efConstruction}", (EmbeddedVectorsList.Count, EmbeddedVectorsList[0].Length), out var graphFilename, out var vectorsFileName);
 
             if (File.Exists(graphFilename))
             {
@@ -25,10 +25,7 @@ namespace HNSW
             }
             else
             {
-                var mParam = 32;
-                var efConstruction = 800;
-
-                CreateSmallWorld(modelPath, mParam, efConstruction);
+                CreateSmallWorld(graphFilename, vectorsFileName, mParam, efConstruction);
             }
         }
 
@@ -39,7 +36,7 @@ namespace HNSW
             return results;
         }
 
-        private void CreateSmallWorld(string modelPath, int mParam, int efConstruction)
+        private void CreateSmallWorld(string graphFilename, string vectorsFileName, int mParam, int efConstruction)
         {
             var dataSize = EmbeddedVectorsList.Count;
             var embeddedIndexList = Enumerable.Range(0, dataSize).ToArray();
@@ -85,7 +82,7 @@ namespace HNSW
             }
 
             var dim = EmbeddedVectorsList[0].Length;
-            SaveWorld(modelPath, DatasetName, World, EmbeddedVectorsList, (dataSize, dim));
+            SaveWorld(graphFilename, vectorsFileName, World, EmbeddedVectorsList, (dataSize, dim));
         }
 
         private void LoadWorld(string graphFilename, string vectorsFileName)
@@ -117,14 +114,11 @@ namespace HNSW
             Console.WriteLine($"Done in {clock.ElapsedMilliseconds} ms.");
         }
 
-        private static void SaveWorld(string modelPath, string datasetName, SmallWorld<int, float> world, IList<float[]> catalogItems, (int vcount, int vsize) shape)
+        private static void SaveWorld(string graphFilename, string vectorsFileName, SmallWorld<int, float> world, IList<float[]> catalogItems, (int vcount, int vsize) shape)
         {
             var clock = Stopwatch.StartNew();
 
-            Console.WriteLine($"Saving HNSW graph to '${modelPath}'...  - elapsed {clock.ElapsedMilliseconds / 1000} sec");
-
-
-            BuildFileNames(modelPath, datasetName, shape, out var graphFilename, out var vectorsFileName);
+            Console.WriteLine($"Saving HNSW graph to '${graphFilename}'...  - elapsed {clock.ElapsedMilliseconds / 1000} sec");
 
             using (StreamWriter sw = new StreamWriter($"{graphFilename}.debug.txt"))
             {
@@ -193,12 +187,12 @@ namespace HNSW
 
         }
 
-        private static void BuildFileNames(string modelPath, string datasetName, (int vcount, int vsize) shape, out string graphFilename, out string vectorsFileName)
+        private static void BuildFileNames(string modelPath, string prefixName, (int vcount, int vsize) shape, out string graphFilename, out string vectorsFileName)
         {
             string VectorsPathSuffix = "vec";
             string GraphPathSuffix = "gf";
 
-            var outputFileNamePrefix = Path.Join(modelPath, $@"{datasetName}-{shape.vcount:D}-{shape.vsize:D}");
+            var outputFileNamePrefix = Path.Join(modelPath, $@"{prefixName}-{shape.vcount:D}-{shape.vsize:D}");
             
             vectorsFileName = $"{outputFileNamePrefix}.{VectorsPathSuffix}";
             graphFilename = $"{outputFileNamePrefix}.{GraphPathSuffix}";

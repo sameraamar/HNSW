@@ -14,12 +14,17 @@ internal class HnswTester
 
     public void Run(int maxDegreeOfParallelism)
     {
-        int hnswK = 250;
+        int hnswK = 1000;
         int groundTruthK = 250;
         int? maxDataSize = 100000;
 
+        var mParam = 32;
+        var efConstruction = 800;
+
         var inputPath = @"C:\Users\saaamar\OneDrive - Microsoft\temp\hnsw-benchmark\datasets\wines";
-        var reducedDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-128.npz");
+        var outputPath = @"c:/temp/hnsw/results";
+
+        var reducedDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-1024.npz");
         var originalDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-1024.npz");
 
         PrepareDataset(true, reducedDimensionDatasetFileName, out var embeddedVectorsListReduced, out var textListReduced, maxDataSize);
@@ -51,7 +56,8 @@ internal class HnswTester
         {
             Console.WriteLine($"Search with HNSW in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Count}");
             var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, hnswK, "Wines", embeddedVectorsListReduced, SIMDCosineDistanceVectorsScoreForUnits);
-            hnsw.Init(@"c:/temp/hnsw/results"); //if exists, load it and override embedded vectors list
+
+            hnsw.Init(outputPath, mParam, efConstruction); //if exists, load it and override embedded vectors list
             var resultsHNSW = hnsw.Run(seedsIndexList);
             PrintLog(resultsHNSW);
             EvaluateScoring(resultsExact, resultsHNSW, groundTruthK);
