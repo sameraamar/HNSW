@@ -10,7 +10,11 @@ namespace HNSW
 
         protected Func<float[], float[], float> DistanceFunction { get; }
 
-        protected List<float[]> EmbeddedVectorsList { get; set; }
+        protected float[][] EmbeddedVectorsList { get; set; }
+
+        protected long DataSize => EmbeddedVectorsList.Length;
+
+        protected int Dimensionality => EmbeddedVectorsList[0].Length;
 
         protected string DatasetName { get; set; }
 
@@ -19,7 +23,7 @@ namespace HNSW
             return DistanceFunction(EmbeddedVectorsList[u], EmbeddedVectorsList[v]);
         }
 
-        protected ScoreAndSortBase(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, List<float[]> embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        protected ScoreAndSortBase(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
         {
             MaxDegreeOfParallelism = maxDegreeOfParallelism;
             MaxScoredItems = maxScoredItems;
@@ -27,9 +31,8 @@ namespace HNSW
             EmbeddedVectorsList = embeddedVectorsList;
             DatasetName = datasetName;
         }
-
-
-        protected (long, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(int[] seedsIndexList)
+        
+        protected virtual (long, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(int[] seedsIndexList)
         {
             var results = new (int candidateIndex, float Score)[seedsIndexList.Length][];
             var sw = Stopwatch.StartNew();

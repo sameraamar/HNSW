@@ -1,0 +1,2 @@
+#define HNSWDLL_API __declspec(dllexport)
+#define HNSWDLL_API __declspec(dllimport)

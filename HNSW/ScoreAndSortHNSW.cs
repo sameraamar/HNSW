@@ -10,14 +10,14 @@ namespace HNSW
     {
         private SmallWorld<int, float> World { get; set; }
 
-        public ScoreAndSortHNSW(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, List<float[]> embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortHNSW(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
             : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
         }
 
         public void Init(string modelPath, int mParam, int efConstruction)
         {
-            BuildFileNames(modelPath, $"{DatasetName}-m{mParam}-ef{efConstruction}", (EmbeddedVectorsList.Count, EmbeddedVectorsList[0].Length), out var graphFilename, out var vectorsFileName);
+            BuildFileNames(modelPath, $"{DatasetName}-dim{Dimensionality}-m{mParam}-ef{efConstruction}", (EmbeddedVectorsList.Length, EmbeddedVectorsList[0].Length), out var graphFilename, out var vectorsFileName);
 
             if (File.Exists(graphFilename))
             {
@@ -38,7 +38,7 @@ namespace HNSW
 
         private void CreateSmallWorld(string graphFilename, string vectorsFileName, int mParam, int efConstruction)
         {
-            var dataSize = EmbeddedVectorsList.Count;
+            var dataSize = EmbeddedVectorsList.Length;
             var embeddedIndexList = Enumerable.Range(0, dataSize).ToArray();
 
             var p = new SmallWorld<int, float>.Parameters()
@@ -102,9 +102,15 @@ namespace HNSW
                 throw new Exception("data found is null or empty!");
             }
 
-            EmbeddedVectorsList = data[2] as List<float[]>;
+            float[][]? temp = data[2] as float[][];
+            if (temp == null)
+            {
+                throw new Exception("data contains null array!");
+            }
 
-            var embeddedIndexList = Enumerable.Range(0, EmbeddedVectorsList.Count).ToArray();
+            EmbeddedVectorsList = temp;
+
+            var embeddedIndexList = Enumerable.Range(0, EmbeddedVectorsList.Length).ToArray();
 
             using (var f = File.OpenRead(graphFilename))
             {

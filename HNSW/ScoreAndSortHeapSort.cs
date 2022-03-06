@@ -3,7 +3,7 @@ namespace HNSW
 {
     internal class ScoreAndSortHeapSort : ScoreAndSortBase
     {
-        public ScoreAndSortHeapSort(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, List<float[]> embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortHeapSort(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
             : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
         }

@@ -21,10 +21,11 @@ internal class HnswTester
         var mParam = 32;
         var efConstruction = 800;
 
+        var datasetName = "Wines";
         var inputPath = @"C:\Users\saaamar\OneDrive - Microsoft\temp\hnsw-benchmark\datasets\wines";
         var outputPath = @"c:/temp/hnsw/results";
 
-        var reducedDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-1024.npz");
+        var reducedDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-128.npz");
         var originalDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-1024.npz");
 
         PrepareDataset(true, reducedDimensionDatasetFileName, out var embeddedVectorsListReduced, out var textListReduced, maxDataSize);
@@ -32,32 +33,49 @@ internal class HnswTester
 
         var seedsIndexList = Enumerable.Range(0, 100).ToArray();
 
-        Console.WriteLine($"Search in original dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Count}");
-        var ss = new ScoreAndSortExact(maxDegreeOfParallelism, groundTruthK, "Wines", embeddedVectorsListOriginal, SIMDCosineSimilarityVectorsScoreForUnits);
+        Console.WriteLine($"Search in original dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Length}");
+
+        var ss = new ScoreAndSortExact(maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListOriginal, SIMDCosineSimilarityVectorsScoreForUnits);
         var resultsExact = ss.Run(seedsIndexList);
         PrintLog(resultsExact);
 
         {
-            Console.WriteLine($"Search in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Count}");
-            var exactSearchReduced = new ScoreAndSortExact(maxDegreeOfParallelism, groundTruthK, "Wines", embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
+            Console.WriteLine();
+            Console.WriteLine($"Search in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
+            var exactSearchReduced = new ScoreAndSortExact(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
             var resultsExactReduced = exactSearchReduced.Run(seedsIndexList);
-            PrintLog(resultsExactReduced); 
+            PrintLog(resultsExactReduced);
             EvaluateScoring(resultsExact, resultsExactReduced, groundTruthK);
         }
 
-        {
-            Console.WriteLine($"Search with Pr.Queue in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Count}");
-            var heap = new ScoreAndSortHeapSort(maxDegreeOfParallelism, groundTruthK, "Wines", embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
+        {           
+            Console.WriteLine();
+            Console.WriteLine($"Search with Pr.Queue in reduced dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
+            var heap = new ScoreAndSortHeapSort(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
             var resultsHeap = heap.Run(seedsIndexList);
             PrintLog(resultsHeap);
             EvaluateScoring(resultsExact, resultsHeap, groundTruthK);
         }
 
         {
-            Console.WriteLine($"Search with HNSW in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Count}");
-            var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, hnswK, "Wines", embeddedVectorsListReduced, SIMDCosineDistanceVectorsScoreForUnits);
+            Console.WriteLine();
+            Console.WriteLine($"Search with C++ HNSW in dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Length}");
 
-            hnsw.Init(outputPath, mParam, efConstruction); //if exists, load it and override embedded vectors list
+            using (var hnsw = new ScoreAndSortHNSWCpp(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits))
+            {
+                hnsw.Init(outputPath, embeddedVectorsListOriginal.Length, mParam, efConstruction);
+                var resultsHNSW = hnsw.Run(seedsIndexList);
+                PrintLog(resultsHNSW);
+                EvaluateScoring(resultsExact, resultsHNSW, groundTruthK);
+            }
+        }
+        
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Search with HNSW in dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Length}");
+            var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits);
+
+            hnsw.Init(outputPath, mParam, efConstruction);
             var resultsHNSW = hnsw.Run(seedsIndexList);
             PrintLog(resultsHNSW);
             EvaluateScoring(resultsExact, resultsHNSW, groundTruthK);
@@ -115,7 +133,9 @@ internal class HnswTester
     {
         Console.WriteLine($"number of seeds {results.Length}");
 
-        Console.WriteLine($"item {0}");
+        if (results.Length == 0)
+            return;
+
         for (var i = 0; i < results[0].Length; i++)
         {
             var reco = results[0][i];
@@ -128,12 +148,11 @@ internal class HnswTester
     private static void PrepareDataset(
         bool doNormalizeFunction,
         string fullFileName,
-        out List<float[]> embeddedVectorsList,
+        out float[][] embeddedVectorsList,
         out List<string> textList,
         int? maxDataSize = null)
     {
         textList = new List<string>();
-        embeddedVectorsList = new List<float[]>();
         
         //if (fullFileName.EndsWith("npy"))
         //{
@@ -148,13 +167,17 @@ internal class HnswTester
         {
             ReadRawVectorsFromFile(fullFileName, out embeddedVectorsList, maxDataSize);
         }
+        else
+        {
+            throw new Exception("Unsupported extension");
+        }
 
         //ReadRawTextFromFile(fullFileName, candidatesAll.Count, out textAll);
         
         if (doNormalizeFunction)
         {
-            Console.WriteLine($"Running normalization for {embeddedVectorsList.Count} items.");
-            embeddedVectorsList?.AsParallel().WithDegreeOfParallelism(Environment.ProcessorCount).ForAll(VectorUtilities.SIMDNormalize);
+            Console.WriteLine($"Running normalization for {embeddedVectorsList.Length} items.");
+            embeddedVectorsList.AsParallel().WithDegreeOfParallelism(Environment.ProcessorCount).ForAll(VectorUtilities.SIMDNormalize);
         }
     }
 
@@ -195,7 +218,7 @@ internal class HnswTester
     //        throw new FileNotFoundException($"No relevant input file found {pathPrefix}");
     //}
 
-    private static void ReadNpzVectorsFromFile(string fullFileName, out List<float[]> candidates, int? dataSizeLimit = null)
+    private static void ReadNpzVectorsFromFile(string fullFileName, out float[][] candidates, int? dataSizeLimit = null)
     {
         NPZInputStream npz = new NPZInputStream(fullFileName);
         var keys = npz.Keys();
@@ -231,7 +254,7 @@ internal class HnswTester
         {
             float[] val = values.Skip(i * vsize).Take(vsize).ToArray();
             return val;
-        }).ToList();
+        }).ToArray();
 
         return;
 
@@ -262,7 +285,7 @@ internal class HnswTester
         //    .ToList();
     }
 
-    private static void ReadRawVectorsFromFile(string fullFileName, out List<float[]> candidates, int? dataSizeLimit = null)
+    private static void ReadRawVectorsFromFile(string fullFileName, out float[][] candidates, int? dataSizeLimit = null)
     {
         var clock = Stopwatch.StartNew();
 
@@ -300,7 +323,7 @@ internal class HnswTester
             .AsOrdered()
             .WithDegreeOfParallelism(Environment.ProcessorCount)
             .Select(line => line.Split(",").Select(float.Parse).ToArray())
-            .ToList();
+            .ToArray();
 
         clock.Stop();
         Console.WriteLine($"Done in {clock.ElapsedMilliseconds} ms.");

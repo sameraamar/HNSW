@@ -7,7 +7,7 @@ namespace HNSW
 
     internal class ScoreAndSortExact : ScoreAndSortBase
     {
-        public ScoreAndSortExact(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, List<float[]> embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortExact(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
         :base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
         }

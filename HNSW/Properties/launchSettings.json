@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HNSW": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
