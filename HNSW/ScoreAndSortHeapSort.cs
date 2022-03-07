@@ -3,33 +3,13 @@ namespace HNSW
 {
     internal class ScoreAndSortHeapSort : ScoreAndSortBase
     {
-        public ScoreAndSortHeapSort(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortHeapSort(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, float[][]? useMeForFinalOrderBy = null)
             : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
+            UseMeForFinalOrderBy = useMeForFinalOrderBy;
         }
 
-        public override (int candidateIndex, float Score)[][] Run(int[] seedsIndexList)
-        {
-            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
-            Console.WriteLine($"[{this.GetType().Name}] Average per seed: {1f * elapsedTime / seedsIndexList.Length:F2} ms");
-            return results;
-        }
-
-        //private (long, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(float[][] seedsVectorList, int[] seedsIndexList, List<float[]> embeddedVectorsList)
-        //{
-        //    var results = new (int candidateIndex, float Score)[seedsVectorList.Length][];
-        //    var sw = Stopwatch.StartNew();
-        //    seedsIndexList
-        //        .AsParallel()
-        //        .WithDegreeOfParallelism(MaxDegreeOfParallelism)
-        //        .ForAll(i =>
-        //        {
-        //            var seed = seedsVectorList[i];
-        //            results[i] = CalculateScoresPerSeed(seed, embeddedVectorsList).ToArray();
-        //        });
-
-        //    return (sw.ElapsedMilliseconds, results);
-        //}
+        public float[][]? UseMeForFinalOrderBy { get; set; }
 
         protected override IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex)
         {
@@ -38,7 +18,14 @@ namespace HNSW
             var scoresPerSeed = EmbeddedVectorsList
                 .Select((candidateVector, candidateIndex) => (candidateIndex, Score: DistanceFunction(seed, candidateVector)));
 
-            return GetTopScoresPriorityQueueSort<int>(scoresPerSeed, MaxScoredItems);
+            var results = GetTopScoresPriorityQueueSort<int>(scoresPerSeed, MaxScoredItems);
+
+            if (UseMeForFinalOrderBy != null)
+            {
+                results = GetTopScoresPriorityQueueSort(results.Select(a => (a.id, DistanceFunction(UseMeForFinalOrderBy[seedIndex], UseMeForFinalOrderBy[a.id]))), MaxScoredItems);
+            }
+
+            return results;
         }
 
         protected IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed1(int seedIndex, List<float[]> embeddedVectorsList)

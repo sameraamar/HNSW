@@ -49,6 +49,14 @@ namespace HNSW
 
         protected abstract IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex);
 
-        public abstract (int candidateIndex, float Score)[][] Run(int[] seedsIndexList);
+        public (int candidateIndex, float Score)[][] Run(int[] seedsIndexList)
+        {
+            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
+            
+            var length = seedsIndexList.Length;
+            Console.WriteLine($"[{this.GetType().Name}] - Dim = {Dimensionality}, DataSize = {DataSize}, Seeds Size = {length}. Average per seed: {1f * elapsedTime / length:F2} ms");
+
+            return results;
+        }
     }
 }

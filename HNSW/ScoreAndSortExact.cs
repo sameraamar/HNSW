@@ -7,18 +7,13 @@ namespace HNSW
 
     internal class ScoreAndSortExact : ScoreAndSortBase
     {
-        public ScoreAndSortExact(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortExact(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, float[][]? useMeForFinalOrderBy = null)
         :base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
+            UseMeForFinalOrderBy = useMeForFinalOrderBy;
         }
 
-        public override (int candidateIndex, float Score)[][] Run(int[] seedsIndexList)
-        {
-            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
-            Console.WriteLine($"[{this.GetType().Name}] Average per seed: {1f * elapsedTime / seedsIndexList.Length:F2} ms");
-
-            return results;
-        }
+        public float[][]? UseMeForFinalOrderBy { get; set; }
 
         protected override IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex)
         {
@@ -27,15 +22,14 @@ namespace HNSW
             var scoresPerSeed = EmbeddedVectorsList
                 .Select((candidateVector, candidateIndex) => (candidateIndex, Score: DistanceFunction(seed, candidateVector)));
 
-            return GetTopScores(scoresPerSeed, MaxScoredItems);
+            var results = GetTopScores(scoresPerSeed, MaxScoredItems);
 
-            //var seed = embeddedVectorsList[seedIndex];
-            //var scoresPerSeed = embeddedVectorsList
-            //    .Select((candidateVector, candidateIndex) => (candidateIndex, Score: DistanceFunction(seed, candidateVector)))
-            //    .OrderByDescending(e => e.Score)
-            //    .Take(MaxScoredItems);
+            if (UseMeForFinalOrderBy != null)
+            {
+                results = GetTopScores(results.Select(a => (a.id, DistanceFunction(UseMeForFinalOrderBy[seedIndex], UseMeForFinalOrderBy[a.id]))), MaxScoredItems);
+            }
 
-            //return scoresPerSeed;
+            return results;
         }
 
 

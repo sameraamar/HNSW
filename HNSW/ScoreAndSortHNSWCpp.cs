@@ -102,9 +102,6 @@ namespace HNSW
         public IEnumerable<(int candidateIndex, float Score)> Search(float[] query, int maxItemsPerSeed)
         {        
             int qSize = 1;
-
-            //float[,] query2D = new float[1, query.Length];
-            //Buffer.BlockCopy(query, 0, query2D, 0, query.Length);
             
             long[] rSizes = new long[qSize];
             ItemAndScore[] results2 = new ItemAndScore[qSize * maxItemsPerSeed];
@@ -181,13 +178,6 @@ namespace HNSW
         {
             var res = AnnIndex.Search(EmbeddedVectorsList[seedIndex], MaxScoredItems);
             return res.Select(a => (a.candidateIndex, 1f - a.Score));
-        }
-
-        public override (int candidateIndex, float Score)[][] Run(int[] seedsIndexList)
-        {
-            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
-            Console.WriteLine($"[{this.GetType().Name}] Average per seed: {1f * elapsedTime / seedsIndexList.Length:F2} ms");
-            return results;
         }
 
         public void Dispose()

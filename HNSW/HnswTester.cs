@@ -8,9 +8,12 @@ using NumpyIO;
 
 internal class HnswTester
 {
-    public HnswTester()
+    public HnswTester(bool debugMode)
     {
+        DebugMode = debugMode;
     }
+    public bool DebugMode { get; set; }
+
 
     public void Run(int maxDegreeOfParallelism)
     {
@@ -41,9 +44,27 @@ internal class HnswTester
 
         {
             Console.WriteLine();
+            Console.WriteLine($"Search with Pr.Queue in original dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Length}");
+            var heap = new ScoreAndSortHeapSort(maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListOriginal, SIMDCosineSimilarityVectorsScoreForUnits);
+            var resultsHeap = heap.Run(seedsIndexList);
+            PrintLog(resultsHeap);
+            EvaluateScoring(resultsExact, resultsHeap, groundTruthK);
+        }
+
+        {
+            Console.WriteLine();
             Console.WriteLine($"Search in reduced-dim dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
-            var exactSearchReduced = new ScoreAndSortExact(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
+            var exactSearchReduced = new ScoreAndSortExact(maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
             var resultsExactReduced = exactSearchReduced.Run(seedsIndexList);
+            PrintLog(resultsExactReduced);
+            EvaluateScoring(resultsExact, resultsExactReduced, groundTruthK);
+        }
+
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Search in reduced-dim dataset (order by original) dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
+            var exactSearchReduced = new ScoreAndSortExact(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal);
+            var resultsExactReduced = exactSearchReduced.Run(seedsIndexList).Take(groundTruthK).ToArray();
             PrintLog(resultsExactReduced);
             EvaluateScoring(resultsExact, resultsExactReduced, groundTruthK);
         }
@@ -53,6 +74,15 @@ internal class HnswTester
             Console.WriteLine($"Search with Pr.Queue in reduced dataset dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
             var heap = new ScoreAndSortHeapSort(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
             var resultsHeap = heap.Run(seedsIndexList);
+            PrintLog(resultsHeap);
+            EvaluateScoring(resultsExact, resultsHeap, groundTruthK);
+        }
+
+        {           
+            Console.WriteLine();
+            Console.WriteLine($"Search with Pr.Queue in reduced dataset (orderBy with original) dim={embeddedVectorsListReduced[0].Length}, data size={embeddedVectorsListReduced.Length}");
+            var heap = new ScoreAndSortHeapSort(maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal);
+            var resultsHeap = heap.Run(seedsIndexList).Take(groundTruthK).ToArray(); ;
             PrintLog(resultsHeap);
             EvaluateScoring(resultsExact, resultsHeap, groundTruthK);
         }
@@ -131,6 +161,8 @@ internal class HnswTester
 
     private void PrintLog((int candidateIndex, float Score)[][] results)
     {
+        if(!DebugMode)
+            return;
         Console.WriteLine($"number of seeds {results.Length}");
 
         if (results.Length == 0)

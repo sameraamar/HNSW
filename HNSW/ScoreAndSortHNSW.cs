@@ -29,13 +29,6 @@ namespace HNSW
             }
         }
 
-        public override (int candidateIndex, float Score)[][] Run(int[] seedsIndexList)
-        {
-            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
-            Console.WriteLine($"[{this.GetType().Name}] Average per seed: {1f * elapsedTime / seedsIndexList.Length:F2} ms");
-            return results;
-        }
-
         private void CreateSmallWorld(string graphFilename, string vectorsFileName, int mParam, int efConstruction)
         {
             var dataSize = EmbeddedVectorsList.Length;
@@ -203,18 +196,6 @@ namespace HNSW
             vectorsFileName = $"{outputFileNamePrefix}.{VectorsPathSuffix}";
             graphFilename = $"{outputFileNamePrefix}.{GraphPathSuffix}";
         }
-
-        //private (long, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(int[] seedsIndexList, List<float[]> embeddedVectorsList)
-        //{
-        //    var results = new (int candidateIndex, float Score)[seedsIndexList.Length][];
-        //    var sw = Stopwatch.StartNew();
-        //    for (var i = 0; i < seedsIndexList.Length; i++)
-        //    {
-        //        results[i] = CalculateScoresPerSeed(seedsIndexList[i]).ToArray();
-        //    }
-
-        //    return (sw.ElapsedMilliseconds, results);
-        //}
 
         protected override IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex)
         {
