@@ -1,10 +1,6 @@
 ﻿
-using Microsoft.Xbox.Recommendations.Modeling.ETS.Instances.Common;
-
 namespace HNSW
 {
-    using System.Diagnostics;
-
     internal class ScoreAndSortExact : ScoreAndSortBase
     {
         public ScoreAndSortExact(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, float[][]? useMeForFinalOrderBy = null, int? evaluationK = null)

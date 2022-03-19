@@ -32,9 +32,9 @@ void CHNSWDll::init()
     return;
 }
 
-Index<float>* Index_Create(const LPCSTR space_name, const int dim)
+Index<float>* Index_Create(const LPCSTR space_name, const int dim, const int debug_mode)
 {
-    return new Index<float>(space_name, dim);
+    return new Index<float>(space_name, dim, debug_mode);
 }
 
 int Index_Delete(Index<float>* index)
@@ -43,7 +43,7 @@ int Index_Delete(Index<float>* index)
 	return 0;
 }
 
-void Print_Info(Index<float>* index, std::string prefix)
+void Print_Info(Index<float>* index, LPCSTR prefix)
 {
     std::cout << "[C++ Debug] [" << prefix << "] -"
 		<< " dim = " << index->dim
@@ -55,19 +55,16 @@ void Print_Info(Index<float>* index, std::string prefix)
 void Index_Init(Index<float>* index, const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed)
 {
 	index->init_new_index(maxElements, M, efConstruction, random_seed);
-    Print_Info(index, "Index_Init");
 }
 
 void Index_Save(Index<FLOAT> *index, LPCSTR path_to_index)
 {
     index->saveIndex(path_to_index);
-	Print_Info(index, "Index_Save");
 }
 
 void Index_Load(Index<FLOAT>* index, LPCSTR path_to_index, size_t max_elements)
 {
     index->loadIndex(path_to_index, max_elements);
-    Print_Info(index, "Index_Load");
 }
 
 void Index_AddItems(Index<FLOAT> *index, FLOAT* input, size_t * ids_, int size, int num_threads)

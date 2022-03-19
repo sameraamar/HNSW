@@ -1,130 +1,224 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.Collections;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using HNSW;
 using Microsoft.Xbox.Recommendations.Modeling.ETS.Instances.Common;
 using NumpyIO;
 
 internal class HnswTester
 {
+    private string datasetName = "Wines";
+    private string inputPath = @"C:\Users\saaamar\OneDrive - Microsoft\temp\hnsw-benchmark\datasets\wines";
+    private string outputPath = @"c:/temp/hnsw/results";
+
+    private float[][] _embeddedVectorsListOriginal;
+    private float[][] _embeddedVectorsListReduced;
+    private List<string> _textListOriginal;
+    private List<string> _textListReduced;
+
+    //
+    //private (int candidateIndex, float Score)[][] _groundTruthResults;
+    //private TimeSpan _groundTruthElapsedTime;
+
     public HnswTester(bool debugMode)
     {
         DebugMode = debugMode;
     }
     public bool DebugMode { get; set; }
 
-
     public void Run(int maxDegreeOfParallelism)
     {
-        int hnswK = 1000;
-        int groundTruthK = 250;
-        int? maxDataSize = 100000;
-
+        int maxDataSize = 100000;
         var mParam = 32;
         var efConstruction = 800;
 
-        var datasetName = "Wines";
-        var inputPath = @"C:\Users\saaamar\OneDrive - Microsoft\temp\hnsw-benchmark\datasets\wines";
-        var outputPath = @"c:/temp/hnsw/results";
+        int groundTruthK = 250;
 
+        LoadDatabase(maxDataSize, maxDegreeOfParallelism, groundTruthK);
+        var seedsIndexList = Enumerable.Range(0, 100).ToArray();
+
+        var dataSizes = Enumerable
+            .Range(1, 10)
+            .Select(a => a * 10000)
+            .ToArray();
+
+        (int candidateIndex, float Score)[][] groundTruthResults;  
+        TimeSpan groundTruthRuntime;
+
+        foreach (var size in dataSizes)
+        {
+            var partialDataArray = _embeddedVectorsListOriginal.Take(size).ToArray();
+            BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, datasetName, partialDataArray, seedsIndexList, out groundTruthResults, out groundTruthRuntime);
+            TestHNSWScoreAndSortCpp(0.95f, maxDegreeOfParallelism, partialDataArray.Take(size), datasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
+        }
+
+
+        BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, datasetName, _embeddedVectorsListOriginal, seedsIndexList, out groundTruthResults, out groundTruthRuntime);
+
+        TestExactScoreAndOrderBySort(maxDegreeOfParallelism, _embeddedVectorsListReduced, groundTruthK, datasetName, seedsIndexList, groundTruthResults, groundTruthRuntime);
+        TestExactScoreAndOrderBySortExtendedK(maxDegreeOfParallelism, _embeddedVectorsListReduced, groundTruthK, datasetName, seedsIndexList, _embeddedVectorsListOriginal, groundTruthResults, groundTruthRuntime, 0.95f);
+
+        TestPriorityQueueScoreAndSort(maxDegreeOfParallelism, _embeddedVectorsListOriginal, groundTruthK, datasetName, seedsIndexList, groundTruthResults, groundTruthRuntime);
+        TestPriorityQueueScoreAndSort(maxDegreeOfParallelism, _embeddedVectorsListReduced, groundTruthK, datasetName, seedsIndexList, groundTruthResults, groundTruthRuntime);
+
+
+        TestPriorityQueueScoreAndSortExtendedK(maxDegreeOfParallelism, _embeddedVectorsListOriginal, groundTruthK, datasetName, seedsIndexList, _embeddedVectorsListReduced, groundTruthResults, groundTruthRuntime, 0.95f);
+
+        TestHNSWScoreAndSortCSharp(maxDegreeOfParallelism, _embeddedVectorsListOriginal, groundTruthK, datasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
+        TestHNSWScoreAndSortCpp(maxDegreeOfParallelism, _embeddedVectorsListOriginal, groundTruthK, datasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
+
+        foreach (var size in dataSizes)
+        {
+            var partialDataArray = _embeddedVectorsListReduced.Take(size).ToArray();
+            BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, datasetName, partialDataArray, seedsIndexList, out groundTruthResults, out groundTruthRuntime);
+            TestExactScoreAndOrderBySortExtendedK(maxDegreeOfParallelism, partialDataArray, groundTruthK, datasetName, seedsIndexList, _embeddedVectorsListOriginal, groundTruthResults, groundTruthRuntime, 0.95f);
+        }
+
+    }
+
+    public void LoadDatabase(int maxDataSize, int maxDegreeOfParallelism, int groundTruthK)
+    {
         var reducedDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-128.npz");
         var originalDimensionDatasetFileName = Path.Join(inputPath, @"wines120kcosine-1024.npz");
 
-        PrepareDataset(true, reducedDimensionDatasetFileName, out var embeddedVectorsListReduced, out var textListReduced, maxDataSize);
-        PrepareDataset(true, originalDimensionDatasetFileName, out var embeddedVectorsListOriginal, out var textListOriginal, maxDataSize);
-
-        var seedsIndexList = Enumerable.Range(0, 100).ToArray();
-
-        Console.WriteLine($"Search in original dataset dim={embeddedVectorsListOriginal[0].Length}, data size={embeddedVectorsListOriginal.Length}");
-
-        var groundTruthResults = BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListOriginal, seedsIndexList);
-
-        TestExactScoreAndOrderBySort(maxDegreeOfParallelism, embeddedVectorsListReduced, groundTruthK, datasetName, seedsIndexList, groundTruthResults, hnswK, embeddedVectorsListOriginal);
-        TestPriorityQueueScoreAndSort(maxDegreeOfParallelism, embeddedVectorsListOriginal, groundTruthK, datasetName, seedsIndexList, groundTruthResults, embeddedVectorsListReduced, hnswK);
-        TestHNSWScoreAndSort(maxDegreeOfParallelism, embeddedVectorsListOriginal, hnswK, datasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults);
-        TestHNSWScoreAndSort(maxDegreeOfParallelism, embeddedVectorsListOriginal, groundTruthK, datasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults);
+        PrepareDataset(true, reducedDimensionDatasetFileName, out _embeddedVectorsListReduced, out _textListReduced, maxDataSize);
+        PrepareDataset(true, originalDimensionDatasetFileName, out _embeddedVectorsListOriginal, out _textListOriginal, maxDataSize);
     }
 
-    private (int candidateIndex, float Score)[][] BuildGroundTruthResults(
+    private void BuildGroundTruthResults(
         int maxDegreeOfParallelism,
         int groundTruthK,
         string datasetName,
         float[][] embeddedVectorsListOriginal,
-        int[] seedsIndexList)
+        int[] seedsIndexList,
+        out (int candidateIndex, float Score)[][] groundTruthResults,
+        out TimeSpan groundTruthElapsedTime)
     {
         var ss = new ScoreAndSortExact($"GT OrderBySort [k={groundTruthK}]", maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListOriginal, SIMDCosineSimilarityVectorsScoreForUnits);
-        var groundTruthResults = ss.Run(seedsIndexList);
-        PrintLog(groundTruthResults);
+        ss.Run(seedsIndexList);
+        PrintDataSampleDebug(ss.Results);
 
-        return groundTruthResults;
+        groundTruthResults = ss.Results;
+        groundTruthElapsedTime = ss.ElapsedTime;
+
+        ss.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
     }
 
-    private void TestHNSWScoreAndSort(int maxDegreeOfParallelism, float[][] embeddedVectorsListOriginal, int k,
-        string datasetName, string outputPath, int mParam, int efConstruction, int[] seedsIndexList,
-        (int candidateIndex, float Score)[][] groundTruthResults)
+    private void TestHNSWScoreAndSortCpp(int maxDegreeOfParallelism, IEnumerable<float[]> embeddedVectorsList, int k, string datasetName, string outputPath, int mParam, int efConstruction, int[] seedsIndexList,
+        (int candidateIndex, float Score)[][] groundTruthResults,
+        TimeSpan groundTruthElapsedTime)
     {
+        var inputDataList = embeddedVectorsList.ToArray();
+        using (var hnsw = new ScoreAndSortHNSWCpp($"HNSW-C++ [k={k}]", maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode))
         {
-            using (var hnsw = new ScoreAndSortHNSWCpp($"HNSW-C++ [k={k}]", maxDegreeOfParallelism, k, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits))
+            hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
+            hnsw.Run(seedsIndexList);
+            hnsw.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+            PrintDataSampleDebug(hnsw.Results);
+        }
+    }
+
+    private void TestHNSWScoreAndSortCpp(float desiredRecall, int maxDegreeOfParallelism, IEnumerable<float[]> embeddedVectorsList, string datasetName, string outputPath, int mParam, int efConstruction, int[] seedsIndexList,
+        (int candidateIndex, float Score)[][] groundTruthResults,
+        TimeSpan groundTruthElapsedTime)
+    {
+        var inputDataList = embeddedVectorsList.ToArray();
+
+        foreach (var i in Enumerable.Range(1, 100))
+        {
+            var k = i * 10;
+            using (var hnsw = new ScoreAndSortHNSWCpp($"HNSW-C++ [k={k}]", maxDegreeOfParallelism, k, datasetName,
+                       inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode))
             {
-                hnsw.Init(outputPath, embeddedVectorsListOriginal.Length, mParam, efConstruction);
-                var resultsHNSW = hnsw.Run(seedsIndexList, groundTruthResults);
-                PrintLog(resultsHNSW);
+                hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
+                hnsw.Run(seedsIndexList);
+                if (hnsw.EvaluateScoring(groundTruthResults) > desiredRecall)
+                {
+                    hnsw.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+                    PrintDataSampleDebug(hnsw.Results);
+                    break;
+                }
             }
         }
+    }
 
-        {
-            var hnsw = new ScoreAndSortHNSW($"HNSW-C# [k={k}]", maxDegreeOfParallelism, k, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits);
-            hnsw.Init(outputPath, mParam, efConstruction);
-            var resultsHNSW = hnsw.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsHNSW);
-        }
+    private void TestHNSWScoreAndSortCSharp(int maxDegreeOfParallelism, float[][] embeddedVectorsListOriginal, int k,
+        string datasetName, string outputPath, int mParam, int efConstruction, int[] seedsIndexList,
+        (int candidateIndex, float Score)[][] groundTruthResults, TimeSpan groundTruthElapsedTime)
+    {
+        var hnsw = new ScoreAndSortHNSW($"HNSW-C# [k={k}]", maxDegreeOfParallelism, k, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits);
+        hnsw.Init(outputPath, mParam, efConstruction);
+        hnsw.Run(seedsIndexList);
+        hnsw.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+        PrintDataSampleDebug(hnsw.Results);
     }
 
     private void TestPriorityQueueScoreAndSort(
         int maxDegreeOfParallelism,
-        float[][] embeddedVectorsListOriginal,
-        int groundTruthK,
+        float[][] embeddedVectorsList,
+        int k,
         string datasetName,
         int[] seedsIndexList,
-        (int candidateIndex, float Score)[][] groundTruthResults,
-        float[][] embeddedVectorsListReduced,
-        int hnswK)
+        (int candidateIndex, float Score)[][] groundTruthResults, 
+        TimeSpan groundTruthElapsedTime)
     {
-        {
-            var heap = new ScoreAndSortHeapSort($"Pr. Queue [k={groundTruthK}]", maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListOriginal, SIMDCosineSimilarityVectorsScoreForUnits);
-            var resultsHeap = heap.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsHeap);
-        }
+        var heap = new ScoreAndSortHeapSort($"Pr. Queue [k={k}]", maxDegreeOfParallelism, k, datasetName, embeddedVectorsList, SIMDCosineSimilarityVectorsScoreForUnits);
+        heap.Run(seedsIndexList);
+        heap.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+        PrintDataSampleDebug(heap.Results);
+    }
 
-        {
-            var heap = new ScoreAndSortHeapSort($"Pr.Queue [k={groundTruthK}]", maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
-            var resultsHeap = heap.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsHeap);
-        }
-
-        {
-            var heap = new ScoreAndSortHeapSort($"Pr.Queue [k={groundTruthK}/{hnswK}]", maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal, groundTruthK);
-            var resultsHeap = heap.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsHeap);
-        }
+    private void TestPriorityQueueScoreAndSortExtendedK(
+        int maxDegreeOfParallelism,
+        float[][] embeddedVectorsListOriginal,
+        int k,
+        string datasetName,
+        int[] seedsIndexList,
+        float[][] embeddedVectorsListReduced,
+        (int candidateIndex, float Score)[][] groundTruthResults,
+        TimeSpan groundTruthElapsedTime,
+        float desiredRecall)
+    {
+        var heap = new ScoreAndSortHeapSort($"Pr.Queue [k={k}/{extendedK}]", maxDegreeOfParallelism, extendedK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal, k);
+        heap.Run(seedsIndexList);
+        heap.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+        PrintDataSampleDebug(heap.Results);
     }
 
     private void TestExactScoreAndOrderBySort(int maxDegreeOfParallelism, float[][] embeddedVectorsListReduced,
         int groundTruthK,
-        string datasetName, int[] seedsIndexList, (int candidateIndex, float Score)[][] groundTruthResults, int hnswK,
-        float[][] embeddedVectorsListOriginal)
+        string datasetName, int[] seedsIndexList, (int candidateIndex, float Score)[][] groundTruthResults,
+        TimeSpan groundTruthElapsedTime)
     {
+        var exactSearchReduced = new ScoreAndSortExact($"OrderBySort [k={groundTruthK}]", maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
+        exactSearchReduced.Run(seedsIndexList);
+        exactSearchReduced.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+        PrintDataSampleDebug(exactSearchReduced.Results);
+    }
+
+    private void TestExactScoreAndOrderBySortExtendedK(int maxDegreeOfParallelism, float[][] embeddedVectorsListReduced,
+        int groundTruthK,
+        string datasetName, int[] seedsIndexList,
+        float[][] embeddedVectorsListOriginal, 
+        (int candidateIndex, float Score)[][] groundTruthResults,
+        TimeSpan groundTruthElapsedTime,
+        float desiredRecall)
+    {
+        for (var i = 1; i <= embeddedVectorsListOriginal.Length / 10; i++)
         {
-            var exactSearchReduced = new ScoreAndSortExact($"OrderBySort [k={groundTruthK}]", maxDegreeOfParallelism, groundTruthK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits);
-            var resultsExactReduced = exactSearchReduced.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsExactReduced);
-        }
-        
-        {
-            var exactSearchReduced = new ScoreAndSortExact($"OrderBySort [k={groundTruthK}/{hnswK}]", maxDegreeOfParallelism, hnswK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal, groundTruthK);
-            var resultsExactReduced = exactSearchReduced.Run(seedsIndexList, groundTruthResults);
-            PrintLog(resultsExactReduced);
+            var extendedK = i * 10;
+
+            var exactSearchReduced = new ScoreAndSortExact($"OrderBySort [k={groundTruthK}/{extendedK}]", maxDegreeOfParallelism, extendedK, datasetName, embeddedVectorsListReduced, SIMDCosineSimilarityVectorsScoreForUnits, embeddedVectorsListOriginal, groundTruthK);
+            exactSearchReduced.Run(seedsIndexList);
+            if (exactSearchReduced.EvaluateScoring(groundTruthResults) > desiredRecall)
+            {
+                exactSearchReduced.Evaluate(seedsIndexList, groundTruthResults, groundTruthElapsedTime);
+                PrintDataSampleDebug(exactSearchReduced.Results);
+                break;
+            }
         }
     }
 
@@ -140,10 +234,11 @@ internal class HnswTester
         return 1F - VectorUtilities.SIMDCosineSimilarityVectorsScoreForUnits(l, r);
     }
 
-    private void PrintLog((int candidateIndex, float Score)[][] results)
+    private void PrintDataSampleDebug((int candidateIndex, float Score)[][] results)
     {
         if(!DebugMode)
             return;
+
         Console.WriteLine($"number of seeds {results.Length}");
 
         if (results.Length == 0)
@@ -189,7 +284,6 @@ internal class HnswTester
         
         if (doNormalizeFunction)
         {
-            Console.WriteLine($"Running normalization for {embeddedVectorsList.Length} items.");
             embeddedVectorsList.AsParallel().WithDegreeOfParallelism(Environment.ProcessorCount).ForAll(VectorUtilities.SIMDNormalize);
         }
     }
@@ -233,7 +327,7 @@ internal class HnswTester
 
     private static void ReadNpzVectorsFromFile(string fullFileName, out float[][] candidates, int? dataSizeLimit = null)
     {
-        NPZInputStream npz = new NPZInputStream(fullFileName);
+        using NPZInputStream npz = new NPZInputStream(fullFileName);
         var keys = npz.Keys();
         var header = npz.Peek(keys[0]);
 

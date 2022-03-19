@@ -120,7 +120,7 @@ inline void ParallelFor(size_t start, size_t end, size_t numThreads, Function fn
 template<typename dist_t, typename data_t = float>
 class Index {
 public:
-    Index(const std::string& space_name, const int dim) :
+    Index(const std::string& space_name, const int dim, const int debugMode) :
         space_name(space_name), dim(dim) {
         normalize = false;
         if (space_name == "l2") {
@@ -142,11 +142,13 @@ public:
         num_threads_default = std::thread::hardware_concurrency();
 
         default_ef = 10;
+        debug_mode = debugMode;
     }
 
     static const int ser_version = 1; // serialization version
 
     std::string space_name;
+    int debug_mode;
     int dim;
     size_t seed;
     size_t default_ef;
@@ -164,7 +166,8 @@ public:
         if (appr_alg)
             delete appr_alg;
 
-        std::cout << "[C++]: ~Index() is called\n";
+        if(debug_mode)
+	        std::cout << "[C++]: ~Index() is called\n";
     }
 
     void init_new_index(const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed) {
@@ -193,11 +196,12 @@ public:
         cur_l = appr_alg->cur_element_count;
         index_inited = true;
 
-        std::cout << "M=" << appr_alg->M_
-            << ", data size=" << appr_alg->data_size_
-            << ", cur_element_count=" << appr_alg->cur_element_count
-            << ", element_levels_.size=" << appr_alg->element_levels_.size()
-            << "\n";
+        if (debug_mode)
+	        std::cout << "M=" << appr_alg->M_
+	            << ", data size=" << appr_alg->data_size_
+	            << ", cur_element_count=" << appr_alg->cur_element_count
+	            << ", element_levels_.size=" << appr_alg->element_levels_.size()
+	            << "\n";
 
         //appr_alg->checkIntegrity();
     }
@@ -218,7 +222,8 @@ public:
         if (num_threads <= 0)
             num_threads = num_threads_default;
 
-        std::cout << "Adding " << rows << " elements with dimension " << dim;
+        if (debug_mode)
+            std::cout << "Adding " << rows << " elements with dimension " << dim;
 
         std::vector<size_t> ids(rows);
         for (size_t i = 0; i < ids.size(); i++) {
@@ -290,7 +295,8 @@ public:
             cur_l += rows;
         }
 
-        std::cout << ". Elements = " << appr_alg->cur_element_count << "\n";
+        if (debug_mode)            
+            std::cout << ". Elements = " << appr_alg->cur_element_count << "\n";
     }
 
 
@@ -441,9 +447,10 @@ struct Item
     int dim;
 };
 
-extern "C" HNSWDLL_API Index<FLOAT> *Index_Create(const LPCSTR space_name, const int dim);
+extern "C" HNSWDLL_API Index<FLOAT> *Index_Create(const LPCSTR space_name, const int dim, const int debug_mode);
 extern "C" HNSWDLL_API int Index_Delete(Index<FLOAT> *index);
 extern "C" HNSWDLL_API void Index_Init(Index<FLOAT> *index, const size_t maxElements, const size_t M, const size_t efConstruction, const size_t random_seed);
+extern "C" HNSWDLL_API void Print_Info(Index<float>*index, LPCSTR prefix);
 extern "C" HNSWDLL_API void Index_Save(Index<FLOAT> *index, LPCSTR path_to_index);
 extern "C" HNSWDLL_API void Index_Load(Index<FLOAT> *index, LPCSTR path_to_index, size_t max_elements);
 extern "C" HNSWDLL_API void Index_AddItems(Index<FLOAT> *index, FLOAT * input, size_t * ids_, int size, int num_threads = -1);

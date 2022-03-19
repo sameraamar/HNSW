@@ -10,7 +10,8 @@ namespace HNSW
     {
         private SmallWorld<int, float> World { get; set; }
 
-        public ScoreAndSortHNSW(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortHNSW(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+            float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
             : base(label, maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
         }
@@ -80,10 +81,6 @@ namespace HNSW
 
         private void LoadWorld(string graphFilename, string vectorsFileName)
         {
-            Stopwatch clock;
-
-            Console.Write("Loading HNSW graph... ");
-            clock = Stopwatch.StartNew();
             BinaryFormatter formatter = new BinaryFormatter();
             
             var data =
@@ -109,8 +106,6 @@ namespace HNSW
             {
                 World = SmallWorld<int, float>.DeserializeGraph(embeddedIndexList, DistanceFunctionByIndex, DefaultRandomGenerator.Instance, f);
             }
-
-            Console.WriteLine($"Done in {clock.ElapsedMilliseconds} ms.");
         }
 
         private static void SaveWorld(string graphFilename, string vectorsFileName, SmallWorld<int, float> world, IList<float[]> catalogItems, (int vcount, int vsize) shape)

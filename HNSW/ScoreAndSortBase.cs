@@ -30,27 +30,45 @@ namespace HNSW
             DatasetName = datasetName;
         }
 
-        public (int candidateIndex, float Score)[][] Run(int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults = null)
+        public void Run(int[] seedsIndexList)
         {
-            var (elapsedTime, results) = CalculateScoresForSeeds(seedsIndexList);
+            (ElapsedTime, Results) = CalculateScoresForSeeds(seedsIndexList);
+        }
 
+        public void Evaluate(int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults, TimeSpan groundTruthTimeSpan)
+        {
             var length = seedsIndexList.Length;
-            var msg = $"[{this.GetType().Name}] - [{Label}] Dim = {Dimensionality}, DataSize = {DataSize}, Seeds Size = {length}. Average per seed: {1f * elapsedTime / length:F2} ms";
+            var runtime = 1f * ElapsedTime.TotalMilliseconds / length;
+            var gtRuntime = 1f * groundTruthTimeSpan.TotalMilliseconds / length;
+            double speedUp = gtRuntime / runtime;
+
+            var header = $"TypeName\tLabel\tDim\tDataSize\tSeeds Size\tAverage per seed\tAverage GT per seed\tSpeed up";
+            var msg = $"[{this.GetType().Name}]\t[{Label}]\t{Dimensionality}\t{DataSize}\t{length}\t{runtime:F2}\t{gtRuntime:F2}\t{speedUp:F}";
             if (groundTruthResults != null)
             {
-                msg += $". Recall = {EvaluateScoring(groundTruthResults, results)}";
+                header += "\tRecall";
+                msg += $"\t{EvaluateScoring(groundTruthResults, Results)}";
             }
-            Console.WriteLine(msg);
 
-            return results;
+            Console.WriteLine(header);
+            Console.WriteLine(msg);
         }
-        
+
+        public (int candidateIndex, float Score)[][] Results { get; private set; }
+
+        public TimeSpan ElapsedTime { get; private set; }
+
+        public float EvaluateScoring((int candidateIndex, float Score)[][] groundTruthResults)
+        {
+            return EvaluateScoring(groundTruthResults, Results);
+        }
+
         protected float DistanceFunctionByIndex(int u, int v)
         {
             return DistanceFunction(EmbeddedVectorsList[u], EmbeddedVectorsList[v]);
         }
 
-        protected virtual (long, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(int[] seedsIndexList)
+        protected virtual (TimeSpan, (int candidateIndex, float Score)[][]) CalculateScoresForSeeds(int[] seedsIndexList)
         {
             var results = new (int candidateIndex, float Score)[seedsIndexList.Length][];
             var sw = Stopwatch.StartNew();
@@ -62,7 +80,7 @@ namespace HNSW
                     results[i] = CalculateScoresPerSeed(seedsIndexList[i]).ToArray();
                 });
 
-            return (sw.ElapsedMilliseconds, results);
+            return (sw.Elapsed, results);
         }
 
         protected abstract IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex);

@@ -42,13 +42,16 @@ namespace HNSW
 
 
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Auto)]
-        public static extern IntPtr Index_Create([MarshalAs(UnmanagedType.LPStr)] string space_name, int dim);
+        public static extern IntPtr Index_Create([MarshalAs(UnmanagedType.LPStr)] string space_name, int dim, int debugMode);
         
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int Index_Delete(IntPtr index);
 
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Index_Init(IntPtr index, long maxElements, long M, long efConstruction, long random_seed);
+
+        [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Print_Info(IntPtr index, [MarshalAs(UnmanagedType.LPStr)] string prefix);
 
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Index_Save(IntPtr index, [MarshalAs(UnmanagedType.LPStr)] string pathToIndex);
@@ -65,11 +68,11 @@ namespace HNSW
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Index_Search1(IntPtr index, [In, MarshalAs(UnmanagedType.LPArray)] float[] input, int qsize, int k, [In, Out, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStruct)] ItemAndScore[] results, [In, Out, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.I8)] long[] rSize, int threads = 1);
 
-        public Index(string space_name, int dim)
+        public Index(string space_name, int dim, bool debugMode)
         {
             try
             {
-                index = Index_Create(space_name, dim);
+                index = Index_Create(space_name, dim, debugMode ? 1 : 0);
             }
             catch (Exception e)
             {
@@ -81,6 +84,11 @@ namespace HNSW
         public void Init(long maxElements, long M, long efConstruction, long random_seed)
         {
             Index_Init(index.Value, maxElements, M, efConstruction, random_seed);
+        }
+
+        public void PrintLog(string prefix)
+        {
+            Print_Info(index.Value, prefix);
         }
 
         public void Load(string pathToIndex, long maxElements)
@@ -136,11 +144,15 @@ namespace HNSW
     {
         private int _countPerIteration = 10_000;
 
-        public ScoreAndSortHNSWCpp(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        public ScoreAndSortHNSWCpp(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+            float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, bool debugMode)
             : base(label, maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
+            DebugMode = debugMode;
         }
-        
+
+        public bool DebugMode { get; set; }
+
         public void Init(string modelPath, int maxElements, int mParam, int efConstruction)
         {
             BuildFileNames(modelPath, $"{DatasetName}-dim{Dimensionality}-m{mParam}-ef{efConstruction}", (EmbeddedVectorsList.Length, EmbeddedVectorsList[0].Length), out var graphFilename);
@@ -150,7 +162,9 @@ namespace HNSW
 
             if (!File.Exists(graphFilename))
             {
-                using (var index = new Index("cosine", Dimensionality))
+                var sw = Stopwatch.StartNew();
+                Console.WriteLine($"Create ({maxElements})");
+                using (var index = new Index("cosine", Dimensionality, DebugMode))
                 {
                     index.Init(maxElements, mParam, efConstruction, 0);
 
@@ -164,13 +178,18 @@ namespace HNSW
                         var ids = Enumerable.Range(handled, handled + take).Select(a => (long)a);
                         index.AddItems(EmbeddedVectorsList.Skip(handled).Take(take), ids, take);
                         handled += take;
+
+                        index.PrintLog($"Create ({maxElements})");
                     }
 
+                    sw.Stop();
                     index.Save(graphFilename);
                 }
+
+                Console.WriteLine($"[HNSW C++] Create HNSW\tDataSize={maxElements}, M={mParam}, ef={efConstruction}\tRuntime={sw.Elapsed}");
             }
 
-            AnnIndex = new Index("cosine", Dimensionality); 
+            AnnIndex = new Index("cosine", Dimensionality, DebugMode); 
             AnnIndex.Load(graphFilename, maxElements);
         }
 
