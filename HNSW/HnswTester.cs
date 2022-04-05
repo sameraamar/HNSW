@@ -8,7 +8,7 @@ internal class CppHnswTester : HnswBaseTester
     //private List<string> _textListOriginal;
     //private List<string> _textListReduced;      
 
-    private int groundTruthK => gtTester.groundTruthK;
+    private int groundTruthK => gtTester.GroundTruthK;
     //private const int seedsCount = 100;
     private int[] seedsIndexList => gtTester.seedsIndexList;
 
@@ -109,7 +109,6 @@ internal class CppHnswTester : HnswBaseTester
                 hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
 
-                Console.WriteLine($"TestHNSWScoreAndSortCpp: Look for {desiredRecall} recall");
                 var r = 0f;
                 if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
                 {
@@ -118,7 +117,7 @@ internal class CppHnswTester : HnswBaseTester
                     break;
                 }
 
-                Console.WriteLine($"\t: k={k}, {r} recall");
+                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. found {r} at k={k}");
             }
         }
     }
@@ -160,7 +159,7 @@ internal class CSharpHnswTester : HnswBaseTester
     public CSharpHnswTester(ExactSearchTester gtTester, int mParam, int efConstruction, string outputPath)
         :base(gtTester.DatasetName, gtTester.DebugMode, mParam, efConstruction, outputPath)
     {
-        groundTruthK = gtTester.groundTruthK;
+        groundTruthK = gtTester.GroundTruthK;
         _embeddedVectorsListOriginal = gtTester._embeddedVectorsListOriginal;
         seedsIndexList = gtTester.seedsIndexList;
 
@@ -278,6 +277,9 @@ internal class CSharpHnswTester : HnswBaseTester
     {
         var inputDataList = embeddedVectorsList.ToArray();
 
+        (int candidateIndex, float Score)[][]? results = null;
+        string header = "";
+        string msg = "";
         foreach (var i in Enumerable.Range(groundTruthResults[0].Length / 5, 100))
         {
             var k = i * 5;
@@ -285,18 +287,24 @@ internal class CSharpHnswTester : HnswBaseTester
             {
                 hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
+                results = hnsw.Results;
+                (header, msg) = hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime, false, false);
 
-                Console.WriteLine($"TestHNSWScoreAndSortCpp: Look for {desiredRecall} recall");
                 var r = 0f;
                 if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
                 {
-                    hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
-                    PrintDataSampleDebug(hnsw.Results);
                     break;
                 }
-                   
-                Console.WriteLine($"\t: k={k}, {r} recall");
+
+                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. Found {r} @ k={k}");
             }
+        }
+
+        if (results != null)
+        {
+            Console.WriteLine(header);
+            Console.WriteLine(msg);
+            PrintDataSampleDebug(results);
         }
     }
 
@@ -326,6 +334,10 @@ internal class CSharpHnswTester : HnswBaseTester
     {
         var inputDataList = embeddedVectorsList.ToArray();
         var kValues = Enumerable.Range(1, 10).Select(a => a * groundTruthResults[0].Length);
+        (int candidateIndex, float Score)[][]? results = null;
+        string header = "";
+        string msg = "";
+
         foreach (var k in kValues)
         {
             var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits);
@@ -333,17 +345,24 @@ internal class CSharpHnswTester : HnswBaseTester
                 hnsw.Init(outputPath, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
 
-                Console.WriteLine($"TestHNSWScoreAndSortC#: Look for {desiredRecall} recall");
+                results = hnsw.Results;
+                (header, msg) = hnsw.Evaluate($"HNSW-C# [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime, false, false);
+
                 var r = 0f;
                 if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
                 {
-                    hnsw.Evaluate($"HNSW-C# [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
-                    PrintDataSampleDebug(hnsw.Results);
                     break;
                 }
 
-                Console.WriteLine($"\t: k={k}, {r} recall");
+                Console.WriteLine($"\tTestHNSWScoreAndSortC#: Look for {desiredRecall} recall. Found {r} @ k={k}");
             }
+        }
+
+        if (results != null)
+        {
+            Console.WriteLine(header);
+            Console.WriteLine(msg);
+            PrintDataSampleDebug(results);
         }
     }
 
@@ -422,7 +441,6 @@ internal class CSharpHnswTester : HnswBaseTester
             exactSearchReduced.Run(seedsIndexList);
             exactSearchReduced.ReScore(seedsIndexList, embeddedVectorsListOriginal, groundTruthK);
 
-            Console.WriteLine($"TestExactScoreAndOrderBySortExtendedK: Look for {desiredRecall} recall");
             var r = 0f;  
             if ((r = exactSearchReduced.EvaluateScoring(groundTruthResults)) > desiredRecall)
             {
@@ -431,7 +449,7 @@ internal class CSharpHnswTester : HnswBaseTester
                 break;
             }
 
-            Console.WriteLine($"\t: k={extendedK}, {r} recall");
+            Console.WriteLine($"\tTestExactScoreAndOrderBySortExtendedK: Look for {desiredRecall} recall. Found {r} @ k={extendedK}");
         }
     }
 

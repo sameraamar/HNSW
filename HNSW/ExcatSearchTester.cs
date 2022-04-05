@@ -7,6 +7,8 @@ using System.Diagnostics;
 
 internal class ExactSearchTester : BaseTester
 {  
+    private const int _seedsCount = 100;
+
     private string inputPath;
 
     private string _inputReducedDataFileName;
@@ -17,42 +19,33 @@ internal class ExactSearchTester : BaseTester
     public List<string> _textListOriginal;
     public List<string> _textListReduced;
 
-    public int groundTruthK = 250;
-    public int seedsCount = 100;
     public int[] seedsIndexList;
+
+    public int GroundTruthK { get; }
+    public int SeedsCount { get; } = _seedsCount;
 
     public bool UseHeapSort { get; }
     
     public (int candidateIndex, float Score)[][] groundTruthResults { get; private set; }
     public TimeSpan groundTruthRuntime { get; private set; }
 
-    public ExactSearchTester(string datasetName, string inputPath, string inputReducedDataFileName, string inputOriginalDataFileName, bool debugMode, bool useHeapSort)
+    public ExactSearchTester(string datasetName, string inputPath, string inputReducedDataFileName, string inputOriginalDataFileName, bool debugMode, bool useHeapSort, int groundTruthK)
         : base(datasetName, debugMode)
     {
         this.inputPath = inputPath;
         this._inputReducedDataFileName = inputReducedDataFileName;
         this._inputOriginalDataFileName = inputOriginalDataFileName;
         UseHeapSort = useHeapSort;
+        GroundTruthK = groundTruthK;
     }
 
 
     public void Run(int maxDegreeOfParallelism, int? maxDataSize = null)
     {
-        var mParam = 32;
-        var efConstruction = 800;
-
-
         LoadDatabase(maxDataSize);
-        maxDataSize = _embeddedVectorsListOriginal.Length;
-
-        seedsIndexList = Enumerable.Range(0, seedsCount).ToArray();
-
-        var dataSizes = Enumerable
-            .Range(1, 10)
-            .Select(a => a * 10000)
-            .ToArray();
-
-        BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, DatasetName, _embeddedVectorsListOriginal, seedsIndexList, out var groundTruthResultsTemp, out var groundTruthRuntimeTemp, UseHeapSort);
+        seedsIndexList = Enumerable.Range(0, SeedsCount).ToArray();
+        
+        BuildGroundTruthResults(maxDegreeOfParallelism, GroundTruthK, DatasetName, _embeddedVectorsListOriginal, seedsIndexList, out var groundTruthResultsTemp, out var groundTruthRuntimeTemp, UseHeapSort);
         groundTruthResults = groundTruthResultsTemp;
         groundTruthRuntime = groundTruthRuntimeTemp;
 
@@ -300,7 +293,7 @@ internal class ReducedDimensionHnswTester : BaseTester
     //private List<string> _textListOriginal;
     //private List<string> _textListReduced;      
 
-    private int groundTruthK => gtTester.groundTruthK;
+    private int groundTruthK => gtTester.GroundTruthK;
     //private const int seedsCount = 100;
     private int[] seedsIndexList => gtTester.seedsIndexList;
 
@@ -316,11 +309,7 @@ internal class ReducedDimensionHnswTester : BaseTester
 
     public void Run(int maxDegreeOfParallelism, (int candidateIndex, float Score)[][] groundTruthResults, TimeSpan groundTruthRuntime, int? maxDataSize = null)
     {
-        var mParam = 32;
-        var efConstruction = 800;
-
-
-        maxDataSize = _embeddedVectorsListOriginal.Length;
+        maxDataSize ??= _embeddedVectorsListOriginal.Length;
 
         var dataSizes = Enumerable
             .Range(1, 10)
@@ -337,6 +326,11 @@ internal class ReducedDimensionHnswTester : BaseTester
 
         foreach (var size in dataSizes)
         {
+            if (size > maxDataSize)
+            {
+                break;
+            }
+
             var partialOriginalDataArray = _embeddedVectorsListOriginal.Take(size).ToArray();
             var partialReducedDataArray = _embeddedVectorsListReduced.Take(size).ToArray();
             BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, DatasetName, partialOriginalDataArray, seedsIndexList, out groundTruthResults, out groundTruthRuntime, gtTester.UseHeapSort);

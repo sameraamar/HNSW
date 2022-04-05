@@ -187,8 +187,8 @@ namespace HNSW
                     sw.Stop();
                     index.Save(graphFilename);
                 }
-
-                Console.WriteLine($"[HNSW C++] Create HNSW\tDataSize={maxElements}, M={mParam}, ef={efConstruction}\tRuntime={sw.Elapsed}");
+                
+                Console.WriteLine($"[HNSW C++] Create HNSW\tDataSize={maxElements}, M={mParam}, ef={efConstruction}\tRuntime={sw.Elapsed}\tFile={graphFilename}");
             }
 
             AnnIndex = new Index("cosine", Dimensionality, DebugMode); 

@@ -37,7 +37,9 @@ namespace HNSW
         {
             if (UseMeForFinalOrderBy != null)
             {
-                Results = seedsIndexList
+                var rescoreSW = Stopwatch.StartNew();
+                
+                var results = seedsIndexList
                     .Select((seed, i) =>
                     {
                         return 
@@ -49,10 +51,12 @@ namespace HNSW
                     .ToArray();
 
                 MaxScoredItems = newMaxScoredItemsPerSeed;
+                ElapsedTime += rescoreSW.Elapsed;
+                Results = results;
             }
         }
 
-        public void Evaluate(string label, int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults, TimeSpan groundTruthTimeSpan)
+        public (string header, string msg) Evaluate(string label, int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults, TimeSpan groundTruthTimeSpan, bool printHeader = false, bool print = true)
         {
             var length = seedsIndexList.Length;
             var runtime = 1f * ElapsedTime.TotalMilliseconds / length;
@@ -67,8 +71,17 @@ namespace HNSW
                 msg += $"\t{EvaluateScoring(groundTruthResults, Results)}";
             }
 
-            Console.WriteLine(header);
-            Console.WriteLine(msg);
+            if (printHeader)
+            {
+                Console.WriteLine(header);
+            }
+
+            if (print)
+            {
+                Console.WriteLine(msg);
+            }
+
+            return (header, msg);
         }
 
         public (int candidateIndex, float Score)[][] Results { get; private set; }

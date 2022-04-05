@@ -10,7 +10,7 @@ string outputPath;
 string inputReducedDataFileName;
 string inputOriginalDataFileName;
 
-string datasetName = "Random100k40d";
+string datasetName = "Wines";
 var enableCSharpHnsw = true;
 
 if (datasetName == "Random1m")
@@ -82,24 +82,28 @@ else
 
 try
 {
-    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputReducedDataFileName, inputOriginalDataFileName, debugMode: false, useHeapSort: true);
-    gPriorityQueueSearch.Run(maxDegreeOfParallelism: 1, maxDataSize);
-
     var mParam = 32;
     var efConstruction = 800;
+    var groundTruthK = 250;
 
-    var cpp = new CppHnswTester(gPriorityQueueSearch, mParam, efConstruction, outputPath);
-    cpp.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
+    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputReducedDataFileName, inputOriginalDataFileName, debugMode: false, useHeapSort: true, groundTruthK);
+    gPriorityQueueSearch.Run(maxDegreeOfParallelism: 1, maxDataSize);
 
-    var rd = new ReducedDimensionHnswTester(gPriorityQueueSearch);
-    cpp.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
+    {
+        var rd = new ReducedDimensionHnswTester(gPriorityQueueSearch);
+        rd.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
+    }
+
+    {
+        var cpp = new CppHnswTester(gPriorityQueueSearch, mParam, efConstruction, outputPath);
+        cpp.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
+    }
 
     if (enableCSharpHnsw)
     {
         var csharp = new CSharpHnswTester(gPriorityQueueSearch, mParam, efConstruction, outputPath);
         csharp.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
     }
-
 }
 catch (Exception ex)
 {
