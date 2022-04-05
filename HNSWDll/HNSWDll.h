@@ -143,6 +143,7 @@ public:
 
         default_ef = 10;
         debug_mode = debugMode;
+        
     }
 
     static const int ser_version = 1; // serialization version
@@ -152,6 +153,7 @@ public:
     int dim;
     size_t seed;
     size_t default_ef;
+    char tmpfilename[L_tmpnam_s];
 
     bool index_inited;
     bool ep_added;
@@ -180,6 +182,14 @@ public:
         ep_added = false;
         appr_alg->ef_ = default_ef;
         seed = random_seed;
+
+        //char[L_tmpnam_s] temp;
+        auto err = tmpnam_s(tmpfilename, L_tmpnam_s - 10);
+        if (err) {
+            throw new std::runtime_error("could not create define file name.");
+        }
+        strcat_s(tmpfilename, ".hnsw");
+        //strncpy_s(tmpfilename, ".hnsw", L_tmpnam_s - 20);
     }
 
     void saveIndex(const std::string& path_to_index) {
@@ -217,7 +227,7 @@ public:
         //std::cout << "[C++][Debug] normalizing norm = " << norm << ", " << norm_array[0] << "\n";
     }
 
-    void addItems(FLOAT* input, size_t* ids_, int rows, int num_threads = -1)
+    void addItems(FLOAT* input, size_t* ids_, int rows, int num_threads = -1, int save_backup = 0)
     {
         if (num_threads <= 0)
             num_threads = num_threads_default;
@@ -297,6 +307,11 @@ public:
 
         if (debug_mode)            
             std::cout << ". Elements = " << appr_alg->cur_element_count << "\n";
+
+        if (save_backup)
+        {
+            this->saveIndex(tmpfilename);
+        }
     }
 
 
@@ -453,7 +468,7 @@ extern "C" HNSWDLL_API void Index_Init(Index<FLOAT> *index, const size_t maxElem
 extern "C" HNSWDLL_API void Print_Info(Index<float>*index, LPCSTR prefix);
 extern "C" HNSWDLL_API void Index_Save(Index<FLOAT> *index, LPCSTR path_to_index);
 extern "C" HNSWDLL_API void Index_Load(Index<FLOAT> *index, LPCSTR path_to_index, size_t max_elements);
-extern "C" HNSWDLL_API void Index_AddItems(Index<FLOAT> *index, FLOAT * input, size_t * ids_, int size, int num_threads = -1);
+extern "C" HNSWDLL_API void Index_AddItems(Index<FLOAT> *index, FLOAT * input, size_t * ids_, int size, int num_threads = -1, int save_backup = 0);
 extern "C" HNSWDLL_API void Index_Search(Index<FLOAT> *index, FLOAT * query, int qsize, int k, SearchResult * results, int num_threads = -1);
 extern "C" HNSWDLL_API void Index_Search1  (Index<FLOAT> *index, FLOAT * query, int qsize, int k, ItemAndScore * results, size_t * rsizes, int num_threads = -1);
 

@@ -9,6 +9,7 @@
 // This is an example of an exported variable
 int nHNSWDll = 0;
 
+
 // This is an example of an exported function.
 CHNSWDll* init(void)
 {
@@ -49,6 +50,7 @@ void Print_Info(Index<float>* index, LPCSTR prefix)
 		<< " dim = " << index->dim
         << " space: " << index->space_name
         << " elements: " << index->appr_alg->cur_element_count
+        << " temp file name: " << index->tmpfilename
         << "\n";
 }
 
@@ -67,9 +69,9 @@ void Index_Load(Index<FLOAT>* index, LPCSTR path_to_index, size_t max_elements)
     index->loadIndex(path_to_index, max_elements);
 }
 
-void Index_AddItems(Index<FLOAT> *index, FLOAT* input, size_t * ids_, int size, int num_threads)
+void Index_AddItems(Index<FLOAT> *index, FLOAT* input, size_t * ids_, int size, int num_threads, int save_backup)
 {
-    index->addItems(input, ids_, size, num_threads);
+    index->addItems(input, ids_, size, num_threads, save_backup);
 }
 
 void Index_Search(Index<FLOAT>* index, FLOAT* query, int qsize, int k, SearchResult* results, int num_threads)

@@ -60,7 +60,7 @@ namespace HNSW
         public static extern void Index_Load(IntPtr index, [MarshalAs(UnmanagedType.LPStr)] string pathToIndex, long maxElements);
 
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Index_AddItems(IntPtr index, [MarshalAs(UnmanagedType.LPArray)] float[] input, [MarshalAs(UnmanagedType.LPArray)] long[] ids, int size, int threads = 1);
+        public static extern void Index_AddItems(IntPtr index, [MarshalAs(UnmanagedType.LPArray)] float[] input, [MarshalAs(UnmanagedType.LPArray)] long[] ids, int size, int threads = 1, int saveBackup = 0);
 
         [DllImport($@"{path}\HNSWDll.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Index_Search(IntPtr index, [In, MarshalAs(UnmanagedType.LPArray)] float[,] input, int qsize, int k, [In, Out, MarshalAs(UnmanagedType.LPArray)] SearchResult[] results, int threads = 1);
@@ -102,19 +102,19 @@ namespace HNSW
             Index_Save(index.Value, pathToIndex);
         }
 
-        public void AddItems(IEnumerable<float[]> input, IEnumerable<long> ids, int length)
+        public void AddItems(IEnumerable<float[]> input, IEnumerable<long> ids, int length, int maxDegreeOfParallelism, bool saveBackup = false)
         {
-            Index_AddItems(index.Value, input.SelectMany(a => a).ToArray(), ids.ToArray(), length, 1);
+            Index_AddItems(index.Value, input.SelectMany(a => a).ToArray(), ids.ToArray(), length, maxDegreeOfParallelism, saveBackup ? 1 : 0);
         }
 
-        public IEnumerable<(int candidateIndex, float Score)> Search(float[] query, int maxItemsPerSeed)
+        public IEnumerable<(int candidateIndex, float Score)> Search(float[] query, int maxItemsPerSeed, int maxDegreeOfParallelism)
         {        
             int qSize = 1;
             
             long[] rSizes = new long[qSize];
             ItemAndScore[] results2 = new ItemAndScore[qSize * maxItemsPerSeed];
 
-            Index_Search1(index.Value, query, qSize, maxItemsPerSeed, results2, rSizes, 1);
+            Index_Search1(index.Value, query, qSize, maxItemsPerSeed, results2, rSizes, maxDegreeOfParallelism);
             
             return results2.Select(a => ((int)a.Item, a.Score));
         }
@@ -143,12 +143,14 @@ namespace HNSW
     internal class ScoreAndSortHNSWCpp : ScoreAndSortBase, IDisposable
     {
         private int _countPerIteration = 10_000;
+        private bool _saveBackup;
 
-        public ScoreAndSortHNSWCpp(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
-            float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, bool debugMode)
-            : base(label, maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
+        public ScoreAndSortHNSWCpp(int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+            float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, bool debugMode, bool saveBackup)
+            : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
             DebugMode = debugMode;
+            _saveBackup = saveBackup;
         }
 
         public bool DebugMode { get; set; }
@@ -176,7 +178,7 @@ namespace HNSW
                     {
                         var take = Math.Min(_countPerIteration, numberOfElements - handled);
                         var ids = Enumerable.Range(handled, handled + take).Select(a => (long)a);
-                        index.AddItems(EmbeddedVectorsList.Skip(handled).Take(take), ids, take);
+                        index.AddItems(EmbeddedVectorsList.Skip(handled).Take(take), ids, take, MaxDegreeOfParallelism, _saveBackup);
                         handled += take;
 
                         index.PrintLog($"Create ({maxElements})");
@@ -195,7 +197,7 @@ namespace HNSW
 
         protected override IEnumerable<(int candidateIndex, float Score)> CalculateScoresPerSeed(int seedIndex)
         {
-            var res = AnnIndex.Search(EmbeddedVectorsList[seedIndex], MaxScoredItems);
+            var res = AnnIndex.Search(EmbeddedVectorsList[seedIndex], MaxScoredItems, MaxDegreeOfParallelism);
             return res.Select(a => (a.candidateIndex, 1f - a.Score));
         }
 

@@ -10,9 +10,9 @@ namespace HNSW
     {
         private SmallWorld<int, float> World { get; set; }
 
-        public ScoreAndSortHNSW(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+        public ScoreAndSortHNSW(int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
             float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
-            : base(label, maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
+            : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
         }
 

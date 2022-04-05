@@ -6,9 +6,8 @@ namespace HNSW
 {
     internal abstract class ScoreAndSortBase
     {
-        public string Label { get; private set; }
-        protected int MaxDegreeOfParallelism { get; }
-        protected int MaxScoredItems { get; }
+        public int MaxDegreeOfParallelism { get; set; }
+        protected int MaxScoredItems { get; private set; }
 
         protected Func<float[], float[], float> DistanceFunction { get; }
 
@@ -20,9 +19,8 @@ namespace HNSW
 
         protected string DatasetName { get; set; }
 
-        protected ScoreAndSortBase(string label, int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
+        protected ScoreAndSortBase(int maxDegreeOfParallelism, int maxScoredItems, string datasetName, float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
         {
-            Label = label;
             MaxDegreeOfParallelism = maxDegreeOfParallelism;
             MaxScoredItems = maxScoredItems;
             DistanceFunction = distanceFunction;
@@ -35,7 +33,26 @@ namespace HNSW
             (ElapsedTime, Results) = CalculateScoresForSeeds(seedsIndexList);
         }
 
-        public void Evaluate(int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults, TimeSpan groundTruthTimeSpan)
+        public void ReScore(int[] seedsIndexList, float[][]? UseMeForFinalOrderBy, int newMaxScoredItemsPerSeed)
+        {
+            if (UseMeForFinalOrderBy != null)
+            {
+                Results = seedsIndexList
+                    .Select((seed, i) =>
+                    {
+                        return 
+                        GetTopScores(
+                            Results[i]
+                            .Select(a => (a.candidateIndex, DistanceFunction(UseMeForFinalOrderBy[seedsIndexList[i]], UseMeForFinalOrderBy[a.candidateIndex]))), newMaxScoredItemsPerSeed)
+                        .ToArray();
+                    })
+                    .ToArray();
+
+                MaxScoredItems = newMaxScoredItemsPerSeed;
+            }
+        }
+
+        public void Evaluate(string label, int[] seedsIndexList, (int candidateIndex, float Score)[][]? groundTruthResults, TimeSpan groundTruthTimeSpan)
         {
             var length = seedsIndexList.Length;
             var runtime = 1f * ElapsedTime.TotalMilliseconds / length;
@@ -43,7 +60,7 @@ namespace HNSW
             double speedUp = gtRuntime / runtime;
 
             var header = $"TypeName\tLabel\tDim\tDataSize\tSeeds Size\tAverage per seed\tAverage GT per seed\tSpeed up";
-            var msg = $"[{this.GetType().Name}]\t[{Label}]\t{Dimensionality}\t{DataSize}\t{length}\t{runtime:F2}\t{gtRuntime:F2}\t{speedUp:F}";
+            var msg = $"[{this.GetType().Name}]\t[{label}]\t{Dimensionality}\t{DataSize}\t{length}\t{runtime:F2}\t{gtRuntime:F2}\t{speedUp:F}";
             if (groundTruthResults != null)
             {
                 header += "\tRecall";
@@ -92,7 +109,7 @@ namespace HNSW
             var groundTruthK = groundTruthResults[0].Length;
 
             var hits = CountHitsDictionary(results, groundTruthResults, groundTruthK);
-            var recall = (float)(1.0 * hits.Sum() / groundTruthK / hits.Count);
+            var recall = 1.0f * hits.Sum() / groundTruthK / hits.Count;
 
             return recall;
         }
@@ -124,5 +141,10 @@ namespace HNSW
         }
 
         #endregion
+
+        public static IEnumerable<(TId id, float score)> GetTopScores<TId>(IEnumerable<(TId id, float score)> results, int resultsCount)
+        {
+            return results.OrderByDescending(r => r.score).Take(resultsCount);
+        }
     }
 }
