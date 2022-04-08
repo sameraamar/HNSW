@@ -37,21 +37,21 @@ namespace HNSW
         {
             if (UseMeForFinalOrderBy != null)
             {
-                var rescoreSW = Stopwatch.StartNew();
+                var reScoreSW = Stopwatch.StartNew();
                 
                 var results = seedsIndexList
                     .Select((seed, i) =>
                     {
-                        return 
-                        GetTopScores(
+                        var resultsWithNewScores =
                             Results[i]
-                            .Select(a => (a.candidateIndex, DistanceFunction(UseMeForFinalOrderBy[seedsIndexList[i]], UseMeForFinalOrderBy[a.candidateIndex]))), newMaxScoredItemsPerSeed)
-                        .ToArray();
+                                .Select(a => (a.candidateIndex, DistanceFunction(UseMeForFinalOrderBy[seedsIndexList[i]], UseMeForFinalOrderBy[a.candidateIndex])));
+
+                        return GetTopScores(resultsWithNewScores, newMaxScoredItemsPerSeed).ToArray();
                     })
                     .ToArray();
 
                 MaxScoredItems = newMaxScoredItemsPerSeed;
-                ElapsedTime += rescoreSW.Elapsed;
+                ElapsedTime += reScoreSW.Elapsed;
                 Results = results;
             }
         }

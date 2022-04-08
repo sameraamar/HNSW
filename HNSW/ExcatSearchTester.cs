@@ -7,8 +7,6 @@ using System.Diagnostics;
 
 internal class ExactSearchTester : BaseTester
 {  
-    private const int _seedsCount = 100;
-
     private string inputPath;
 
     private string _inputReducedDataFileName;
@@ -22,14 +20,14 @@ internal class ExactSearchTester : BaseTester
     public int[] seedsIndexList;
 
     public int GroundTruthK { get; }
-    public int SeedsCount { get; } = _seedsCount;
+    public int SeedsCount { get; }
 
     public bool UseHeapSort { get; }
     
     public (int candidateIndex, float Score)[][] groundTruthResults { get; private set; }
     public TimeSpan groundTruthRuntime { get; private set; }
 
-    public ExactSearchTester(string datasetName, string inputPath, string inputReducedDataFileName, string inputOriginalDataFileName, bool debugMode, bool useHeapSort, int groundTruthK)
+    public ExactSearchTester(string datasetName, string inputPath, string inputReducedDataFileName, string inputOriginalDataFileName, bool debugMode, bool useHeapSort, int groundTruthK, int seedsCount)
         : base(datasetName, debugMode)
     {
         this.inputPath = inputPath;
@@ -37,6 +35,7 @@ internal class ExactSearchTester : BaseTester
         this._inputOriginalDataFileName = inputOriginalDataFileName;
         UseHeapSort = useHeapSort;
         GroundTruthK = groundTruthK;
+        SeedsCount = seedsCount;
     }
 
 

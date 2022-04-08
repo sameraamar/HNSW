@@ -4,6 +4,8 @@ using HNSW;
 
 internal class CppHnswTester : HnswBaseTester
 {
+    private readonly int _maxDegreeOfParallelismBuild = Environment.ProcessorCount;
+
     private float[][] _embeddedVectorsListOriginal => gtTester._embeddedVectorsListOriginal;
     //private List<string> _textListOriginal;
     //private List<string> _textListReduced;      
@@ -80,10 +82,9 @@ internal class CppHnswTester : HnswBaseTester
         TimeSpan groundTruthElapsedTime)
     {
         var inputDataList = embeddedVectorsList.ToArray();
-        using (var hnsw = new ScoreAndSortHNSWCpp(Environment.ProcessorCount, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, true))
+        using (var hnsw = new ScoreAndSortHNSWCpp( _maxDegreeOfParallelismBuild, maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, true))
         {
             hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
-            hnsw.MaxDegreeOfParallelism = maxDegreeOfParallelism;
             hnsw.Run(seedsIndexList);
             hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
             PrintDataSampleDebug(hnsw.Results);
@@ -104,7 +105,7 @@ internal class CppHnswTester : HnswBaseTester
         var kValues = Enumerable.Range(0, 40).Select(a => (1 + a * 0.5) * groundTruthResults[0].Length).Select(a => (int)a);
         foreach (var k in kValues)
         {
-            using (var hnsw = new ScoreAndSortHNSWCpp(maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, false))
+            using (var hnsw = new ScoreAndSortHNSWCpp(_maxDegreeOfParallelismBuild, maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, false))
             {
                 hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
@@ -254,10 +255,9 @@ internal class CSharpHnswTester : HnswBaseTester
         TimeSpan groundTruthElapsedTime)
     {
         var inputDataList = embeddedVectorsList.ToArray();
-        using (var hnsw = new ScoreAndSortHNSWCpp(Environment.ProcessorCount, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, true))
+        using (var hnsw = new ScoreAndSortHNSWCpp( maxDegreeOfParallelism, maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, true))
         {
             hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
-            hnsw.MaxDegreeOfParallelism = maxDegreeOfParallelism;
             hnsw.Run(seedsIndexList);
             hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
             PrintDataSampleDebug(hnsw.Results);
@@ -283,7 +283,7 @@ internal class CSharpHnswTester : HnswBaseTester
         foreach (var i in Enumerable.Range(groundTruthResults[0].Length / 5, 100))
         {
             var k = i * 5;
-            using (var hnsw = new ScoreAndSortHNSWCpp(maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, false))
+            using (var hnsw = new ScoreAndSortHNSWCpp(maxDegreeOfParallelism, maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits, DebugMode, false))
             {
                 hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);

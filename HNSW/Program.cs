@@ -85,8 +85,10 @@ try
     var mParam = 32;
     var efConstruction = 800;
     var groundTruthK = 250;
+    var seedsCount = 5000;
 
-    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputReducedDataFileName, inputOriginalDataFileName, debugMode: false, useHeapSort: true, groundTruthK);
+
+    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputReducedDataFileName, inputOriginalDataFileName, debugMode: false, useHeapSort: true, groundTruthK, seedsCount);
     gPriorityQueueSearch.Run(maxDegreeOfParallelism: 1, maxDataSize);
 
     {

@@ -143,14 +143,16 @@ namespace HNSW
     internal class ScoreAndSortHNSWCpp : ScoreAndSortBase, IDisposable
     {
         private int _countPerIteration = 10_000;
+        private int _maxDegreeOfParallelismBuild;
         private bool _saveBackup;
 
-        public ScoreAndSortHNSWCpp(int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+        public ScoreAndSortHNSWCpp(int maxDegreeOfParallelismBuild, int maxDegreeOfParallelismSearch, int maxScoredItems, string datasetName,
             float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction, bool debugMode, bool saveBackup)
-            : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
+            : base(maxDegreeOfParallelismSearch, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {
             DebugMode = debugMode;
             _saveBackup = saveBackup;
+            _maxDegreeOfParallelismBuild = maxDegreeOfParallelismBuild;
         }
 
         public bool DebugMode { get; set; }
@@ -178,7 +180,7 @@ namespace HNSW
                     {
                         var take = Math.Min(_countPerIteration, numberOfElements - handled);
                         var ids = Enumerable.Range(handled, handled + take).Select(a => (long)a);
-                        index.AddItems(EmbeddedVectorsList.Skip(handled).Take(take), ids, take, MaxDegreeOfParallelism, _saveBackup);
+                        index.AddItems(EmbeddedVectorsList.Skip(handled).Take(take), ids, take, _maxDegreeOfParallelismBuild, _saveBackup);
                         handled += take;
 
                         index.PrintLog($"Create ({maxElements})");
@@ -188,7 +190,7 @@ namespace HNSW
                     index.Save(graphFilename);
                 }
                 
-                Console.WriteLine($"[HNSW C++] Create HNSW\tDataSize={maxElements}, M={mParam}, ef={efConstruction}\tRuntime={sw.Elapsed}\tFile={graphFilename}");
+                Console.WriteLine($"[HNSW C++] Create HNSW\tDataSize={maxElements}, DOP={_maxDegreeOfParallelismBuild}, M={mParam}, ef={efConstruction}\tRuntime={sw.Elapsed}\tFile={graphFilename}");
             }
 
             AnnIndex = new Index("cosine", Dimensionality, DebugMode); 
