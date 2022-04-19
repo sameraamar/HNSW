@@ -197,7 +197,7 @@ internal class CSharpHnswTester : HnswBaseTester
         {
             BuildGroundTruthResults(maxDegreeOfParallelism, groundTruthK, DatasetName, _embeddedVectorsListOriginal, seedsIndexList, out groundTruthResults, out groundTruthRuntime, gtTester.UseHeapSort);
             TestHNSWScoreAndSortCSharp(0.95f, maxDegreeOfParallelism, _embeddedVectorsListOriginal, DatasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
-            TestHNSWScoreAndSortCSharp(0.85f, maxDegreeOfParallelism, _embeddedVectorsListOriginal, DatasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
+            TestHNSWScoreAndSortCSharp(0.99f, maxDegreeOfParallelism, _embeddedVectorsListOriginal, DatasetName, outputPath, mParam, efConstruction, seedsIndexList, groundTruthResults, groundTruthRuntime);
         }
 
         //// HNSW C++
@@ -333,7 +333,7 @@ internal class CSharpHnswTester : HnswBaseTester
         TimeSpan groundTruthElapsedTime)
     {
         var inputDataList = embeddedVectorsList.ToArray();
-        var kValues = Enumerable.Range(1, 10).Select(a => a * groundTruthResults[0].Length);
+        var kValues = Enumerable.Range(1, 20).Select(a => a * groundTruthResults[0].Length);
         (int candidateIndex, float Score)[][]? results = null;
         string header = "";
         string msg = "";
