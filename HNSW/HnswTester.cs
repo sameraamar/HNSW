@@ -110,15 +110,15 @@ internal class CppHnswTester : HnswBaseTester
                 hnsw.Init(outputPath, inputDataList.Length, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
 
-                var r = 0f;
-                if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
+                var r = hnsw.EvaluateScoring(groundTruthResults);
+                if (r.Recall > desiredRecall)
                 {
                     hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
                     PrintDataSampleDebug(hnsw.Results);
                     break;
                 }
-
-                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. found {r} at k={k}");
+                
+                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. found {r.Recall} at k={k}, wrong scores={r.NotMatchingScores}%");
             }
         }
     }
@@ -290,13 +290,13 @@ internal class CSharpHnswTester : HnswBaseTester
                 results = hnsw.Results;
                 (header, msg) = hnsw.Evaluate($"HNSW-C++ [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime, false, false);
 
-                var r = 0f;
-                if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
+                var r = hnsw.EvaluateScoring(groundTruthResults);
+                if (r.Item1 > desiredRecall)
                 {
                     break;
                 }
 
-                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. Found {r} @ k={k}");
+                Console.WriteLine($"\tTestHNSWScoreAndSortCpp: Look for {desiredRecall} recall. Found {r} @ k={k}, wrong scores={r.NotMatchingScores}%");
             }
         }
 
@@ -348,13 +348,13 @@ internal class CSharpHnswTester : HnswBaseTester
                 results = hnsw.Results;
                 (header, msg) = hnsw.Evaluate($"HNSW-C# [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime, false, false);
 
-                var r = 0f;
-                if ((r = hnsw.EvaluateScoring(groundTruthResults)) > desiredRecall)
+                var r = hnsw.EvaluateScoring(groundTruthResults);
+                if (r.Recall > desiredRecall)
                 {
                     break;
                 }
 
-                Console.WriteLine($"\tTestHNSWScoreAndSortC#: Look for {desiredRecall} recall. Found {r} @ k={k}");
+                Console.WriteLine($"\tTestHNSWScoreAndSortC#: Look for {desiredRecall} recall. Found {r} @ k={k}, wrong scores={r.NotMatchingScores}%");
             }
         }
 
@@ -403,14 +403,14 @@ internal class CSharpHnswTester : HnswBaseTester
 
             var r = heap.EvaluateScoring(groundTruthResults);
             Console.WriteLine($"TestPriorityQueueScoreAndSortExtendedK: Look for {desiredRecall} recall at k={extendedK}, found {r0} or {r} recall when sorted by original dim");
-            if (r > desiredRecall)
+            if (r.Recall > desiredRecall)
             {
                 heap.Evaluate($"Pr.Queue [k={groundTruthK}/{extendedK}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
                 PrintDataSampleDebug(heap.Results);
                 break;
             }
 
-            Console.WriteLine($"\t: k={extendedK}, {r} recall");
+            Console.WriteLine($"\t: k={extendedK}, {r} recall, wrong scores={r.NotMatchingScores}%");
         }
     }
 
@@ -441,15 +441,15 @@ internal class CSharpHnswTester : HnswBaseTester
             exactSearchReduced.Run(seedsIndexList);
             exactSearchReduced.ReScore(seedsIndexList, embeddedVectorsListOriginal, groundTruthK);
 
-            var r = 0f;  
-            if ((r = exactSearchReduced.EvaluateScoring(groundTruthResults)) > desiredRecall)
+            var r = exactSearchReduced.EvaluateScoring(groundTruthResults);  
+            if (r.Recall > desiredRecall)
             {
                 exactSearchReduced.Evaluate($"OrderBySort [k={groundTruthK}/{extendedK}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
                 PrintDataSampleDebug(exactSearchReduced.Results);
                 break;
             }
 
-            Console.WriteLine($"\tTestExactScoreAndOrderBySortExtendedK: Look for {desiredRecall} recall. Found {r} @ k={extendedK}");
+            Console.WriteLine($"\tTestExactScoreAndOrderBySortExtendedK: Look for {desiredRecall} recall. Found {r} @ k={extendedK}, wrong scores={r.NotMatchingScores}%");
         }
     }
 

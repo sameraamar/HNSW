@@ -1,9 +1,9 @@
 ﻿
-using System.Diagnostics;
-using System.Reflection.Emit;
-
 namespace HNSW
 {
+    using Microsoft.Xbox.Recommendations.Modeling.ETS.Instances.Common;
+    using System.Diagnostics;
+
     internal abstract class ScoreAndSortBase
     {
         public int MaxDegreeOfParallelism { get; set; }
@@ -67,8 +67,9 @@ namespace HNSW
             var msg = $"[{this.GetType().Name}]\t[{label}]\t{Dimensionality}\t{DataSize}\t{length}\t{runtime:F2}\t{gtRuntime:F2}\t{speedUp:F}";
             if (groundTruthResults != null)
             {
-                header += "\tRecall";
-                msg += $"\t{EvaluateScoring(groundTruthResults, Results)}";
+                header += "\tRecall\tWrong Scores";
+                var r = EvaluateScoring(groundTruthResults, Results);
+                msg += $"\t{r.Recall}\t{r.NotMatchingScores}";
             }
 
             if (printHeader)
@@ -88,7 +89,7 @@ namespace HNSW
 
         public TimeSpan ElapsedTime { get; private set; }
 
-        public float EvaluateScoring((int candidateIndex, float Score)[][] groundTruthResults)
+        public (float Recall, int NotMatchingScores) EvaluateScoring((int candidateIndex, float Score)[][] groundTruthResults)
         {
             return EvaluateScoring(groundTruthResults, Results);
         }
@@ -117,20 +118,21 @@ namespace HNSW
 
         #region private
 
-        private static float EvaluateScoring((int candidateIndex, float Score)[][] groundTruthResults, (int candidateIndex, float Score)[][] results)
+        private static (float Recall, int NotMatchingScores) EvaluateScoring((int candidateIndex, float Score)[][] groundTruthResults, (int candidateIndex, float Score)[][] results)
         {
             var groundTruthK = groundTruthResults[0].Length;
 
             var hits = CountHitsDictionary(results, groundTruthResults, groundTruthK);
-            var recall = 1.0f * hits.Sum() / groundTruthK / hits.Count;
+            var recall = 1.0f * hits.Select(c => c.hits).Sum() / groundTruthK / hits.Count;
+            var notMatchingScores = hits.Select(c => c.countWrongScores).Sum();
 
-            return recall;
+            return (recall, notMatchingScores);
         }
 
 
-        private static List<int> CountHitsDictionary((int candidateIndex, float Score)[][] recoItemsTnsw, (int candidateIndex, float Score)[][] recoItemsGroundTruth, int? groundTruthK = null)
+        private static List<(int hits, int countWrongScores)> CountHitsDictionary((int candidateIndex, float Score)[][] recoItemsTnsw, (int candidateIndex, float Score)[][] recoItemsGroundTruth, int? groundTruthK = null)
         {
-            var recall = Enumerable.Repeat(0, recoItemsGroundTruth.Length).ToList();
+            var recall = Enumerable.Repeat((0, 0), recoItemsGroundTruth.Length).ToList();
 
             if (recoItemsTnsw.Length == 0)
             {
@@ -141,13 +143,38 @@ namespace HNSW
             {
                 var recommendedItemsPairwise = recoItemsGroundTruth[i];
                 var recommendedItemsTnsw = recoItemsTnsw[i];
+                var recommendedItemsTnswTopK = groundTruthK.HasValue ? recommendedItemsTnsw.Take(groundTruthK.Value) : recommendedItemsTnsw;
 
-                var count = recommendedItemsPairwise.Count(recommendedItem =>
+                IEnumerable<(int itemIndex, float itemScore, int gtIndex, float gtScore)> mapIndices =
+                    recommendedItemsPairwise
+                        .Select(recommendedItem =>
+                        {
+                            var gt = recommendedItemsTnswTopK
+                                .Where(s => s.candidateIndex == recommendedItem.candidateIndex)
+                                .FirstOrDefault((-1, 0.0f));
+
+                            return (recommendedItem.candidateIndex, recommendedItem.Score, gt.Item1, gt.Item2);
+                        })
+                        .ToArray();
+
+                var count = mapIndices.Count(a => a.gtIndex > -1 && a.gtIndex == a.itemIndex);
+
+                var count1 = recommendedItemsPairwise.Count(recommendedItem =>
                 {
                     var temp = groundTruthK.HasValue ? recommendedItemsTnsw.Take(groundTruthK.Value) : recommendedItemsTnsw;
                     return temp.Any(s => s.candidateIndex == recommendedItem.candidateIndex);
                 });
-                recall[i] = count;
+
+                Debug.Assert(count == count1);
+
+                var countWrongScores  = mapIndices.Count(a => a.gtIndex != -1 && a.gtIndex == a.itemIndex && !VectorUtilities.CompareAlmostEqual(a.gtScore, a.itemScore));
+                var countNotFoundItems  = mapIndices.Count(a => a.gtIndex == -1);
+                var countFoundItems = mapIndices.Count(a => a.gtIndex != -1);
+
+                //Debug.Assert(countWrongScores == 0);
+                Debug.Assert(countFoundItems + countNotFoundItems == groundTruthK);
+
+                recall[i] = (count, countWrongScores);
             }
 
             return recall;

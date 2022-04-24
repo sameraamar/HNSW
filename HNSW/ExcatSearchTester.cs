@@ -385,7 +385,7 @@ internal class ReducedDimensionHnswTester : BaseTester
 
             var r = heap.EvaluateScoring(groundTruthResults);
             Console.WriteLine($"TestPriorityQueueScoreAndSortExtendedK: Look for {desiredRecall} recall at k={extendedK}, found {r0} or {r} recall when sorted by original dim");
-            if (r > desiredRecall)
+            if (r.Recall > desiredRecall)
             {
                 heap.Evaluate($"Pr.Queue [k={groundTruthK}/{extendedK}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
                 PrintDataSampleDebug(heap.Results);

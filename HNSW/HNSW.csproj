@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HNSWLib\HNSWLib.csproj" />
+    <ProjectReference Include="..\Microsoft.Recommendations.FastRetrieve\Microsoft.Recommendations.FastRetrieve.csproj" />
   </ItemGroup>
 
 </Project>
