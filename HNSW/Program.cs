@@ -88,11 +88,11 @@ try
     var seedsCount = 5000;
 
 
-    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputReducedDataFileName, inputOriginalDataFileName, debugMode: false, useHeapSort: true, groundTruthK, seedsCount);
+    var gPriorityQueueSearch = new ExactSearchTester(datasetName, inputPath, inputOriginalDataFileName, debugMode: false, useHeapSort: true, groundTruthK, seedsCount);
     gPriorityQueueSearch.Run(maxDegreeOfParallelism: 1, maxDataSize);
 
     {
-        var rd = new ReducedDimensionHnswTester(gPriorityQueueSearch);
+        var rd = new ReducedDimensionHnswTester(datasetName, inputPath, inputReducedDataFileName, debugMode: false, gPriorityQueueSearch);
         rd.Run(maxDegreeOfParallelism: 1, gPriorityQueueSearch.groundTruthResults, gPriorityQueueSearch.groundTruthRuntime);
     }
 

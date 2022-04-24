@@ -9,13 +9,10 @@ internal class ExactSearchTester : BaseTester
 {  
     private string inputPath;
 
-    private string _inputReducedDataFileName;
     private string _inputOriginalDataFileName;
 
     public float[][] _embeddedVectorsListOriginal;
-    public float[][] _embeddedVectorsListReduced;
     public List<string> _textListOriginal;
-    public List<string> _textListReduced;
 
     public int[] seedsIndexList;
 
@@ -27,11 +24,10 @@ internal class ExactSearchTester : BaseTester
     public (int candidateIndex, float Score)[][] groundTruthResults { get; private set; }
     public TimeSpan groundTruthRuntime { get; private set; }
 
-    public ExactSearchTester(string datasetName, string inputPath, string inputReducedDataFileName, string inputOriginalDataFileName, bool debugMode, bool useHeapSort, int groundTruthK, int seedsCount)
+    public ExactSearchTester(string datasetName, string inputPath, string inputOriginalDataFileName, bool debugMode, bool useHeapSort, int groundTruthK, int seedsCount)
         : base(datasetName, debugMode)
     {
         this.inputPath = inputPath;
-        this._inputReducedDataFileName = inputReducedDataFileName;
         this._inputOriginalDataFileName = inputOriginalDataFileName;
         UseHeapSort = useHeapSort;
         GroundTruthK = groundTruthK;
@@ -52,14 +48,11 @@ internal class ExactSearchTester : BaseTester
 
     public void LoadDatabase(int? maxDataSize)
     {
-        var reducedDimensionDatasetFileName = Path.Join(inputPath, _inputReducedDataFileName);
         var originalDimensionDatasetFileName = Path.Join(inputPath, _inputOriginalDataFileName);
-
         PrepareDataset(true, originalDimensionDatasetFileName, out _embeddedVectorsListOriginal, out _textListOriginal, maxDataSize);
-        PrepareDataset(true, reducedDimensionDatasetFileName, out _embeddedVectorsListReduced, out _textListReduced, maxDataSize);
     }
 
-    private static void PrepareDataset(
+    public static void PrepareDataset(
         bool doNormalizeFunction,
         string fullFileName,
         out float[][] embeddedVectorsList,
@@ -287,8 +280,14 @@ internal class ExactSearchTester : BaseTester
 
 internal class ReducedDimensionHnswTester : BaseTester
 {
+    private string inputPath;
+
+    private string _inputReducedDataFileName;
+
     private float[][] _embeddedVectorsListOriginal => gtTester._embeddedVectorsListOriginal;
-    private float[][] _embeddedVectorsListReduced => gtTester._embeddedVectorsListReduced;
+    public float[][] _embeddedVectorsListReduced;
+    public List<string> _textListReduced;
+
     //private List<string> _textListOriginal;
     //private List<string> _textListReduced;      
 
@@ -300,15 +299,25 @@ internal class ReducedDimensionHnswTester : BaseTester
 
     private IEnumerable<int> TestKValues => Enumerable.Range(groundTruthK / 5, 501 / 5).Select(a => a * 5);
 
-    public ReducedDimensionHnswTester(ExactSearchTester gtTester)
-        : base(gtTester.DatasetName, gtTester.DebugMode)
+    public ReducedDimensionHnswTester(string datasetName, string inputPath, string inputReducedDataFileName, bool debugMode, ExactSearchTester gtTester)
+        : base(datasetName, debugMode)
     {
+        this.inputPath = inputPath;
+        this._inputReducedDataFileName = inputReducedDataFileName;
         this.gtTester = gtTester;
+    }
+
+    public void LoadDatabase(int? maxDataSize)
+    {
+        var reducedDimensionDatasetFileName = Path.Join(inputPath, _inputReducedDataFileName);
+        ExactSearchTester.PrepareDataset(true, reducedDimensionDatasetFileName, out _embeddedVectorsListReduced, out _textListReduced, maxDataSize);
     }
 
     public void Run(int maxDegreeOfParallelism, (int candidateIndex, float Score)[][] groundTruthResults, TimeSpan groundTruthRuntime, int? maxDataSize = null)
     {
         maxDataSize ??= _embeddedVectorsListOriginal.Length;
+
+        LoadDatabase(maxDataSize);
 
         var dataSizes = Enumerable
             .Range(1, 10)
