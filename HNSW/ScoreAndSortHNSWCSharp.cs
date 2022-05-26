@@ -6,11 +6,11 @@ namespace HNSW
 {
     using System.Diagnostics;
 
-    internal class ScoreAndSortHNSW : ScoreAndSortBase
+    internal class ScoreAndSortHNSWCSharp : ScoreAndSortBase
     {
         private SmallWorld<int, float> World { get; set; }
 
-        public ScoreAndSortHNSW(int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
+        public ScoreAndSortHNSWCSharp(int maxDegreeOfParallelism, int maxScoredItems, string datasetName,
             float[][] embeddedVectorsList, Func<float[], float[], float> distanceFunction)
             : base(maxDegreeOfParallelism, maxScoredItems, datasetName, embeddedVectorsList, distanceFunction)
         {

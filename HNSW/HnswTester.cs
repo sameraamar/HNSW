@@ -312,7 +312,7 @@ internal class CSharpHnswTester : HnswBaseTester
         string datasetName, string outputPath, int mParam, int efConstruction, int[] seedsIndexList,
         (int candidateIndex, float Score)[][] groundTruthResults, TimeSpan groundTruthElapsedTime)
     {
-        var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, k, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits);
+        var hnsw = new ScoreAndSortHNSWCSharp(maxDegreeOfParallelism, k, datasetName, embeddedVectorsListOriginal, SIMDCosineDistanceVectorsScoreForUnits);
         hnsw.Init(outputPath, mParam, efConstruction);
         hnsw.Run(seedsIndexList);
         hnsw.Evaluate($"HNSW-C# [k={k}]", seedsIndexList, groundTruthResults, groundTruthElapsedTime);
@@ -340,7 +340,7 @@ internal class CSharpHnswTester : HnswBaseTester
 
         foreach (var k in kValues)
         {
-            var hnsw = new ScoreAndSortHNSW(maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits);
+            var hnsw = new ScoreAndSortHNSWCSharp(maxDegreeOfParallelism, k, datasetName, inputDataList, SIMDCosineDistanceVectorsScoreForUnits);
             {
                 hnsw.Init(outputPath, mParam, efConstruction);
                 hnsw.Run(seedsIndexList);
